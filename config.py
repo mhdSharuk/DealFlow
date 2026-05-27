@@ -6,3 +6,5 @@ path = Path(os.getcwd()) / '.env'
 load_dotenv(dotenv_path=path, override=True)
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+GEMINI_MODEL   = 'gemini-2.0-flash'
+ 

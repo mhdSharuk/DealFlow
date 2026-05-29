@@ -3,7 +3,7 @@ from config import GEMINI_MODEL
 from agents.extractor_agent.prompts import EXTRACTOR_AGENT_PROMPT
 from agents.extractor_agent.schema import ExtractionOutputSchema
 
-def get_extractor_agent():
+def create_extractor_agent():
     return LlmAgent(
         name = 'extractor_agent',
         model = GEMINI_MODEL,

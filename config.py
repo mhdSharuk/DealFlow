@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 path = Path(os.getcwd()) / '.env'
 load_dotenv(dotenv_path=path, override=True)
 
-BASE_DIR = Path(__file__).parent.parent
-
+BASE_DIR = Path(os.getcwd())
+print(BASE_DIR)
 DATA_DIR = BASE_DIR / "data"
 OUTPUT_DIR = DATA_DIR / "output"
 DATABASE_PATH = DATA_DIR / "tasks.db"

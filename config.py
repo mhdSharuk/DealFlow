@@ -6,8 +6,9 @@ path = Path(os.getcwd()) / '.env'
 load_dotenv(dotenv_path=path, override=True)
 
 BASE_DIR = Path(os.getcwd())
-print(BASE_DIR)
+
 DATA_DIR = BASE_DIR / "data"
+INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 DATABASE_PATH = DATA_DIR / "tasks.db"
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 
-from config import DATABASE_PATH
+from config import DATABASE_PATH, TICKETS_TABLE_PATH
 
 class DatabaseService:
     def __init__(self, db_path = DATABASE_PATH):
@@ -15,7 +15,7 @@ class DatabaseService:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        with open("tickets_table_schema.sql", "r") as sql_file:
+        with open(TICKETS_TABLE_PATH, "r") as sql_file:
             sql_script = sql_file.read()
 
         cursor.execute(sql_script)

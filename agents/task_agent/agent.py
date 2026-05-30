@@ -10,7 +10,7 @@ def create_task_agent():
         description = """Maps the call transcript and extracted information to 
                         clear action items for the internal employees
                         to follow up on""",
-    instructions = SYSTEM_PROMPT,
+    instruction = SYSTEM_PROMPT,
     output_schema = TaskOutput,
     output_key = 'agent_2_tasks'
     )

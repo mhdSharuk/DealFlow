@@ -10,7 +10,7 @@ def create_extractor_agent():
         description = """Extracts topics and its summaries along with 
                         pain points and competitiors mentioned from
                         the call transcripts""",
-        instructions = SYSTEM_PROMPT,
+        instruction  = SYSTEM_PROMPT,
         output_schema = ExtractionOutputSchema,
         output_key = 'extraction_result'
     )

@@ -10,6 +10,19 @@ import streamlit as st
 
 from orchestrator import DealFlowOrchestrator
 
+hide_elements = """
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .block-container {
+            padding-top: 0rem; 
+            padding-bottom: 0rem;
+        }
+    </style>
+"""
+st.markdown(hide_elements, unsafe_allow_html=True)
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Logging — writes to BOTH terminal (stderr) and a session-state log buffer
 # ─────────────────────────────────────────────────────────────────────────────
@@ -595,7 +608,7 @@ def render_header() -> None:
     st.markdown(
         """
         <div class="sc-header">
-            <span class="wordmark">SALES COPILOT</span>
+            <span class="wordmark">DealFlow</span>
             <span class="tagline">Multi-Agent Intelligence</span>
             <span class="version">v2.0 · Fireflies AI</span>
         </div>
@@ -765,7 +778,7 @@ def _render_taskmage(data: dict) -> None:
         st.markdown(
             f'<div class="fc-task">'
             f'  <div class="ft-assignee">#{i} · {task.get("assignee","Unknown")}</div>'
-            f'  <div class="ft-action">{task.get("action_item","No action specified")}</div>'
+            f'  <div class="ft-action">{task.get("action_items","No action specified")}</div>'
             f"  {blocker_html}"
             f"</div>",
             unsafe_allow_html=True,

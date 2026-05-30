@@ -1,0 +1,34 @@
+Subject: Redwood AI Follow-up: Private Deployment, Security & Performance Next Steps
+
+Hi Team,
+
+Thank you for taking the time to connect with our team yesterday. It was a highly productive discussion, and we appreciate you sharing your specific requirements and vision for leveraging Redwood AI, particularly your interest in private deployment and VPC peering.
+
+We understand your paramount concerns regarding security, including avoiding accidental public egress, and the critical need for KMS-backed keys, automatic rotation, and comprehensive audit logs. We are also committed to addressing your extensive security checklist, which includes SOC2, ISO, SAML/SSO integration, and configurable audit log retention, alongside ensuring data residency for your EU-only users.
+
+We recognize the challenges presented by your existing VPC peering with partners and limited CIDR space. Our goal is to provide flexible network solutions that integrate seamlessly. We also noted your strict performance requirements, aiming for p95 latency under 200ms for short prompts and specific cost-per-token targets. We are confident in our ability to help you meet these SLOs through optimized configurations and dedicated resources.
+
+Furthermore, we've taken note of your desire for secure local development without exposing production keys, robust CI/CD secret rotation patterns, and clear usage analytics with per-route token-level cost breakdowns. We also understand the importance of avoiding vendor lock-in, which is why our SDKs are designed to be thin HTTP clients, allowing for flexibility and future migration ease.
+
+Here are the next steps we'll be taking to support your evaluation:
+
+*   **Alex Chen will provide:**
+    *   The complete security pack, including SOC 2 Type II documentation, a pen test summary, and our compliance checklist.
+    *   Pricing options for dedicated reserved capacity, detailing commitment terms and minimum capacity.
+    *   A one-pager summarizing our onboarding security review, covering SOC2 compliance, SAML, encryption details, KMS integration, and audit log retention options.
+    *   Documentation of the HTTP contract for Redwood SDKs to ensure transparency and flexibility.
+
+*   **Priya Nair will facilitate:**
+    *   A snippet in the SDK quickstart to validate the `REDWOOD_BASE_URL` environment variable, mitigating accidental public egress.
+    *   Provisioning a sandbox project with rate-limited sandbox API keys for your development team.
+    *   A Terraform module for VPC peering, along with an example Docker-compose for local development using workload identity emulation.
+    *   A minimal Terraform example that includes VPC peering, route table entries, and firewall rules for control plane endpoints.
+    *   Inclusion of region options within the proposal document to address data residency requirements.
+    *   Running benchmark scenarios, including 50 qps short prompts, 200 qps batched embeddings, and a p95 latency curve, within the customer's VPC sandbox. (Note: We will need sample payloads and target metrics from your team to proceed).
+    *   Enabling request logging with PII redaction and providing a sample for shipping logs to GCP logging or S3 for debugging and audit purposes.
+    *   A suggested configuration for batch size per GPU to be included in the sandbox documentation.
+
+We're excited about the prospect of partnering with you to address these critical areas and demonstrate Redwood AI's capabilities tailored to your specific needs. We look forward to the next steps.
+
+Best regards,
+The Redwood AI Team

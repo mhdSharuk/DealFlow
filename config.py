@@ -14,9 +14,8 @@ DATABASE_PATH = DATA_DIR / "tasks.db"
 TICKETS_TABLE_PATH = BASE_DIR / Path('services/tickets_table_schema.sql')
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-GEMINI_MODEL   = 'gemini-2.0-flash'
+GEMINI_MODEL   = os.getenv('GEMINI_MODEL_NAME')
 
- 
 def ensure_directories():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

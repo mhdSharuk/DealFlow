@@ -55,37 +55,30 @@ DealFlow is an intelligent multi-agent system that automates post-sales-call wor
 
 ```mermaid
 flowchart TD
-    A([📂 data/input/\n*.json files]) -->|every 3 s| B
+    A([📂 Drop JSON\ndata/input/])
+    A -->|"detected every 3 s"| B[File Watcher]
+    B -->|"create job · move file"| C[(SQLite\njobs table)]
+    B -->|enqueue job_id| D[asyncio.Queue]
+    D --> E[Worker]
 
-    subgraph API ["⚙️ FastAPI Process — api.py"]
-        B[File Watcher Loop\nasyncio task] -->|create job + enqueue| C[(SQLite\ntasks.db)]
-        B -->|job_id| D[asyncio.Queue]
-        D -->|job_id| E[Worker Loop\nasyncio task]
-        E -->|load payload| C
-        E --> F[DealFlowOrchestrator]
-        F --> G
-        F --> H
-        subgraph L1 ["Layer 1 — parallel"]
-            G[Extractor Agent\ntopics · pain points · competitors]
-            H[Taskmage Agent\naction items · assignees]
-        end
-        subgraph L2 ["Layer 2 — parallel"]
-            I[HubSpot Agent\ndeal stage · sentiment · CRM notes]
-            J[Email Agent\nfollow-up email draft]
-        end
-        G & H -->|extraction + tasks| I & J
-        I & J -->|results| E
-        E -->|update status + result| C
+    E --> L1
+
+    subgraph L1["Layer 1 — runs in parallel"]
+        direction LR
+        EX[🔍 Extractor\ntopics · pain points · competitors]
+        TM[📋 Taskmage\naction items · assignees]
     end
 
-    subgraph UI ["🖥️ Streamlit Process — ui.py"]
-        K[Dashboard\nJob Queue Panel] -->|GET /jobs every 3 s| L[FastAPI Endpoints]
-        K -->|GET /jobs/id on click| L
-        L --> C
+    L1 --> L2
+
+    subgraph L2["Layer 2 — runs in parallel"]
+        direction LR
+        HS[🏢 HubSpot\ndeal stage · sentiment · CRM notes]
+        EM[✉️ Email\nfollow-up draft]
     end
 
-    C -->|output files| M([📁 data/output/\nhubspot · email · full JSON])
-    C -->|tasks table| N([🗃️ tasks table\nassignee · action · blocker])
+    L2 -->|"save result · mark complete"| C
+    C -->|"GET /jobs  ·  GET /jobs/id"| UI([🖥️ Streamlit Dashboard\nauto-refreshes every 3 s])
 ```
 
 ### Job Lifecycle

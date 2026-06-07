@@ -1,0 +1,468 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "database_services.py",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L1",
+      "community": 1,
+      "norm_label": "database_services.py",
+      "id": "database_services"
+    },
+    {
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L9",
+      "community": 1,
+      "norm_label": ".__init__()",
+      "id": "database_services_databaseservice_init"
+    },
+    {
+      "label": "._init_database()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L14",
+      "community": 1,
+      "norm_label": "._init_database()",
+      "id": "database_services_databaseservice_init_database"
+    },
+    {
+      "label": ".insert_tasks()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L25",
+      "community": 1,
+      "norm_label": ".insert_tasks()",
+      "id": "database_services_databaseservice_insert_tasks"
+    },
+    {
+      "label": "Connection",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L25",
+      "community": 1,
+      "norm_label": "connection",
+      "id": "connection"
+    },
+    {
+      "label": ".insert_tasks_batch()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L47",
+      "community": 1,
+      "norm_label": ".insert_tasks_batch()",
+      "id": "database_services_databaseservice_insert_tasks_batch"
+    },
+    {
+      "label": ".get_tasks_by_assignee()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L70",
+      "community": 1,
+      "norm_label": ".get_tasks_by_assignee()",
+      "id": "database_services_databaseservice_get_tasks_by_assignee"
+    },
+    {
+      "label": ".get_all_tasks()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L82",
+      "community": 1,
+      "norm_label": ".get_all_tasks()",
+      "id": "database_services_databaseservice_get_all_tasks"
+    },
+    {
+      "label": ".update_task_status()",
+      "file_type": "code",
+      "source_file": "database_services.py",
+      "source_location": "L91",
+      "community": 1,
+      "norm_label": ".update_task_status()",
+      "id": "database_services_databaseservice_update_task_status"
+    },
+    {
+      "label": "storage_services.py",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L1",
+      "community": 0,
+      "norm_label": "storage_services.py",
+      "id": "storage_services"
+    },
+    {
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L9",
+      "community": 0,
+      "norm_label": ".__init__()",
+      "id": "storage_services_storageservice_init"
+    },
+    {
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L9",
+      "community": 0,
+      "norm_label": "path",
+      "id": "path"
+    },
+    {
+      "label": ".save_hubspot_payload()",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L13",
+      "community": 0,
+      "norm_label": ".save_hubspot_payload()",
+      "id": "storage_services_storageservice_save_hubspot_payload"
+    },
+    {
+      "label": "Any",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L13",
+      "community": 0,
+      "norm_label": "any",
+      "id": "any"
+    },
+    {
+      "label": ".save_email_draft()",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L20",
+      "community": 0,
+      "norm_label": ".save_email_draft()",
+      "id": "storage_services_storageservice_save_email_draft"
+    },
+    {
+      "label": ".save_mail_payload()",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L28",
+      "community": 0,
+      "norm_label": ".save_mail_payload()",
+      "id": "storage_services_storageservice_save_mail_payload"
+    },
+    {
+      "label": ".save_full_output()",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L35",
+      "community": 0,
+      "norm_label": ".save_full_output()",
+      "id": "storage_services_storageservice_save_full_output"
+    },
+    {
+      "label": "._timestamp()",
+      "file_type": "code",
+      "source_file": "storage_services.py",
+      "source_location": "L42",
+      "community": 0,
+      "norm_label": "._timestamp()",
+      "id": "storage_services_storageservice_timestamp"
+    }
+  ],
+  "links": [
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L82",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_get_all_tasks"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_get_tasks_by_assignee"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_init"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_init_database"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_insert_tasks"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L47",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_insert_tasks_batch"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services",
+      "target": "database_services_databaseservice_update_task_status"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services_databaseservice_init",
+      "target": "database_services_databaseservice_init_database"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "database_services.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "database_services_databaseservice_insert_tasks",
+      "target": "connection"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services",
+      "target": "storage_services_storageservice_init"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L20",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services",
+      "target": "storage_services_storageservice_save_email_draft"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services",
+      "target": "storage_services_storageservice_save_full_output"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services",
+      "target": "storage_services_storageservice_save_hubspot_payload"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services",
+      "target": "storage_services_storageservice_save_mail_payload"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L42",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services",
+      "target": "storage_services_storageservice_timestamp"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_init",
+      "target": "path"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L20",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_email_draft",
+      "target": "path"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_full_output",
+      "target": "path"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_hubspot_payload",
+      "target": "path"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_mail_payload",
+      "target": "path"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_hubspot_payload",
+      "target": "any"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_hubspot_payload",
+      "target": "storage_services_storageservice_timestamp"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L20",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_email_draft",
+      "target": "any"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_full_output",
+      "target": "any"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_mail_payload",
+      "target": "any"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L21",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_email_draft",
+      "target": "storage_services_storageservice_timestamp"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_mail_payload",
+      "target": "storage_services_storageservice_timestamp"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "storage_services.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "storage_services_storageservice_save_full_output",
+      "target": "storage_services_storageservice_timestamp"
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "8fa6a0c339185a8eea73435bf9f110e233d041fb"
+}

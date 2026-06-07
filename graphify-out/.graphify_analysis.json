@@ -1,0 +1,52 @@
+{
+  "communities": {
+    "0": [
+      "any",
+      "path",
+      "storage_services",
+      "storage_services_storageservice_init",
+      "storage_services_storageservice_save_email_draft",
+      "storage_services_storageservice_save_full_output",
+      "storage_services_storageservice_save_hubspot_payload",
+      "storage_services_storageservice_save_mail_payload",
+      "storage_services_storageservice_timestamp"
+    ],
+    "1": [
+      "connection",
+      "database_services",
+      "database_services_databaseservice_get_all_tasks",
+      "database_services_databaseservice_get_tasks_by_assignee",
+      "database_services_databaseservice_init",
+      "database_services_databaseservice_init_database",
+      "database_services_databaseservice_insert_tasks",
+      "database_services_databaseservice_insert_tasks_batch",
+      "database_services_databaseservice_update_task_status"
+    ]
+  },
+  "cohesion": {
+    "0": 0.5277777777777778,
+    "1": 0.25
+  },
+  "gods": [
+    {
+      "id": "path",
+      "label": "Path",
+      "degree": 5
+    },
+    {
+      "id": "any",
+      "label": "Any",
+      "degree": 4
+    },
+    {
+      "id": "connection",
+      "label": "Connection",
+      "degree": 1
+    }
+  ],
+  "surprises": [],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "database_services.py": {
+    "mtime": 1780123238.2973938,
+    "ast_hash": "d12a7f7b88bb47fb1b30f2ccbb343a3e",
+    "semantic_hash": "d12a7f7b88bb47fb1b30f2ccbb343a3e"
+  },
+  "storage_services.py": {
+    "mtime": 1780034901.4807854,
+    "ast_hash": "85db3d8a19a5d9c7f4ab11ecdc4e7b7c",
+    "semantic_hash": "85db3d8a19a5d9c7f4ab11ecdc4e7b7c"
+  },
+  "tickets_table_schema.sql": {
+    "mtime": 1780032352.156604,
+    "ast_hash": "b75d209b5429783e7553cdba37343130",
+    "semantic_hash": "b75d209b5429783e7553cdba37343130"
+  }
+}

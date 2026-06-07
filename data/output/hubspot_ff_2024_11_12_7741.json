@@ -1,6 +1,0 @@
-{
-  "deal_stage_recommendation": "Demo/Validation",
-  "perceived_sentiment": "Cautiously optimistic",
-  "competitor_threat_level": "Low",
-  "hubspot_notes_body": "During a product overview, the client, represented by Samantha Yuen and Miguel Ortega, expressed significant concerns regarding Protected Health Information (PHI) handling, particularly about data retention duration and access controls for prompts and responses. They articulated a strong preference for a minimal data retention period, ideally around 7 days. Ben Carter committed to providing a comprehensive written response addressing their security questions, an FAQ, and sharing the SOC 2 report under NDA. Samantha Yuen agreed to confirm if a 7-day retention policy would meet their organizational requirements. Task assigned: Ben Carter to share the exact hosted data retention window. Task assigned: Ben Carter to send the security FAQ and the SOC 2 report, pending NDA."
-}

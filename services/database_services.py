@@ -55,7 +55,7 @@ class DatabaseService:
                     "INSERT INTO tasks (assignee_name, task_description, blocker_notes, meeting_id) VALUES (?, ?, ?, ?)",
                     (
                         task.get("assignee", ""),
-                        task.get("action_item", ""),
+                        task.get("action_items", ""),
                         task.get("blocker"),
                         meeting_id
                     )

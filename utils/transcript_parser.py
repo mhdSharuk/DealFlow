@@ -2,6 +2,7 @@ import json
 from typing import Dict, Any, List, Optional
 
 class TranscriptParser:
+    @staticmethod
     def parse_fireflies_json(raw_json: Dict[str, Any]) -> Dict[str, Any]:
         meeting_metadata = {
             'meeting_id'       : raw_json.get('meeting_id', ""),

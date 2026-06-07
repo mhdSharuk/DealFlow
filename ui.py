@@ -1,14 +1,16 @@
-import asyncio
 import json
 import logging
-import sys
 import time
-import traceback
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
+import httpx
 import streamlit as st
 
-from orchestrator import DealFlowOrchestrator
+from config import API_BASE_URL
+
+log = logging.getLogger("dealflow.ui")
+logging.basicConfig(level=logging.INFO)
 
 hide_elements = """
     <style>
@@ -16,7 +18,7 @@ hide_elements = """
         footer {visibility: hidden;}
         header {visibility: hidden;}
         .block-container {
-            padding-top: 0rem; 
+            padding-top: 0rem;
             padding-bottom: 0rem;
         }
     </style>
@@ -24,51 +26,10 @@ hide_elements = """
 st.markdown(hide_elements, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Logging — writes to BOTH terminal (stderr) and a session-state log buffer
-# ─────────────────────────────────────────────────────────────────────────────
-class UILogHandler(logging.Handler):
-    """Push log records into st.session_state.logs so the UI can render them."""
-    def emit(self, record: logging.LogRecord) -> None:
-        if "logs" not in st.session_state:
-            st.session_state.logs = []
-        ts = datetime.now().strftime("%H:%M:%S")
-        level = record.levelname
-        msg   = self.format(record)
-        st.session_state.logs.append({"ts": ts, "level": level, "msg": msg})
-
-
-def _setup_logger() -> logging.Logger:
-    logger = logging.getLogger("sales_copilot")
-    if not logger.handlers:
-        logger.setLevel(logging.DEBUG)
-
-        # Terminal handler (colour-coded via ANSI)
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
-        ch.setFormatter(
-            logging.Formatter(
-                "\033[90m%(asctime)s\033[0m  %(levelname)-8s  %(message)s",
-                datefmt="%H:%M:%S",
-            )
-        )
-        logger.addHandler(ch)
-
-        # UI handler
-        ui_handler = UILogHandler()
-        ui_handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(ui_handler)
-
-    return logger
-
-
-log = _setup_logger()
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 #  Page config
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Sales Copilot",
+    page_title="DealFlow",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -134,23 +95,35 @@ section[data-testid="stSidebar"] { display: none !important; }
     margin-left: auto;
 }
 
-/* ── Upload zone ── */
-.upload-zone {
+/* ── Drop zone notice ── */
+.drop-zone {
     background: #0D1117;
     border: 1.5px dashed #30363D;
     border-radius: 12px;
-    padding: 1.75rem 2rem;
+    padding: 1.1rem 2rem;
     margin-bottom: 1.75rem;
-    transition: border-color .25s;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
-.upload-zone:hover { border-color: #58A6FF55; }
-.upload-zone .uz-label {
+.drop-zone .dz-icon {
+    font-size: 1.4rem;
+}
+.drop-zone .dz-text {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: #58A6FF;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 0.75rem;
+    letter-spacing: 0.08em;
+}
+.drop-zone .dz-path {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: #3FB950;
+    background: #3FB95011;
+    border: 1px solid #3FB95033;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
 }
 
 /* ── Buttons ── */
@@ -184,99 +157,69 @@ div[data-testid="stButton"] > button:not([kind="primary"]):hover {
     color: #58A6FF !important;
 }
 
-/* ── Pipeline strip ── */
-.pipeline-strip {
-    display: flex;
-    align-items: center;
-    gap: 0;
+/* ── Job queue panel ── */
+.job-queue-panel {
     background: #0D1117;
     border: 1px solid #21262D;
-    border-radius: 10px;
-    padding: 1.1rem 1.5rem;
-    margin-bottom: 1.5rem;
-    overflow-x: auto;
-}
-.pipe-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 130px;
-}
-.pipe-step .ps-dot {
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: #21262D;
-    border: 2px solid #30363D;
-    margin-bottom: 0.45rem;
-    transition: all .4s ease;
-}
-.pipe-step.running .ps-dot  { background: #58A6FF; border-color: #58A6FF; box-shadow: 0 0 12px #58A6FF88; animation: pulse 1.2s infinite; }
-.pipe-step.complete .ps-dot { background: #3FB950; border-color: #3FB950; box-shadow: 0 0 8px #3FB95055; }
-.pipe-step.error .ps-dot    { background: #F85149; border-color: #F85149; }
-.pipe-step .ps-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.65rem;
-    color: #484F58;
-    text-align: center;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-.pipe-step.running .ps-label  { color: #58A6FF; }
-.pipe-step.complete .ps-label { color: #3FB950; }
-.pipe-step.error .ps-label    { color: #F85149; }
-.pipe-connector {
-    flex: 1;
-    height: 2px;
-    background: #21262D;
-    margin-bottom: 1.4rem;
-    min-width: 20px;
-    transition: background .4s ease;
-}
-.pipe-connector.lit { background: #3FB950; }
-
-/* ── Live log console ── */
-.log-console {
-    background: #010409;
-    border: 1px solid #21262D;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 0;
-    margin-bottom: 1.5rem;
     overflow: hidden;
 }
-.log-console .lc-topbar {
+.jq-header {
     background: #161B22;
-    padding: 0.55rem 1rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid #21262D;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: #484F58;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+.job-row {
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid #21262D;
+    cursor: pointer;
+    transition: background .2s;
 }
-.log-console .lc-topbar .dot { width:10px;height:10px;border-radius:50%; }
-.log-console .lc-topbar .d-red    { background:#F85149; }
-.log-console .lc-topbar .d-yellow { background:#D29922; }
-.log-console .lc-topbar .d-green  { background:#3FB950; }
-.log-console .lc-topbar .lc-title {
+.job-row:last-child { border-bottom: none; }
+.job-row:hover { background: #161B22; }
+.job-row.selected { background: #58A6FF11; border-left: 3px solid #58A6FF; }
+.jr-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+}
+.jr-badge {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+.badge-pending    { background: #D2992220; color: #D29922; border: 1px solid #D2992244; }
+.badge-processing { background: #58A6FF20; color: #58A6FF; border: 1px solid #58A6FF44; animation: pulse-badge 1.4s infinite; }
+.badge-complete   { background: #3FB95020; color: #3FB950; border: 1px solid #3FB95044; }
+.badge-failed     { background: #F8514920; color: #F85149; border: 1px solid #F8514944; }
+.jr-name {
+    font-size: 0.82rem;
+    color: #C9D1D9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+.jr-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
     color: #484F58;
-    margin-left: 0.4rem;
-    letter-spacing: 0.06em;
 }
-.log-console .lc-body {
-    padding: 0.9rem 1.1rem;
-    max-height: 280px;
-    overflow-y: auto;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem;
-    line-height: 1.65;
-}
-.log-line { display: flex; gap: 0.75rem; margin-bottom: 0.15rem; }
-.log-ts   { color: #484F58; flex-shrink: 0; }
-.log-DEBUG   { color: #8B949E; }
-.log-INFO    { color: #58A6FF; }
-.log-WARNING { color: #D29922; }
-.log-ERROR   { color: #F85149; }
-.log-SUCCESS { color: #3FB950; }
 
 /* ── Metric chips ── */
 .metric-row {
@@ -308,7 +251,7 @@ div[data-testid="stButton"] > button:not([kind="primary"]):hover {
     font-weight: 600;
     color: #C9D1D9;
 }
-.metric-chip .mc-value.accent { color: #58A6FF; }
+.metric-chip .mc-value.accent  { color: #58A6FF; }
 .metric-chip .mc-value.success { color: #3FB950; }
 
 /* ── Agent result card ── */
@@ -531,9 +474,9 @@ textarea {
 hr { border-color: #21262D !important; }
 
 /* ── Animations ── */
-@keyframes pulse {
-    0%,100% { box-shadow: 0 0 8px #58A6FF66; }
-    50%      { box-shadow: 0 0 20px #58A6FFaa; }
+@keyframes pulse-badge {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.55; }
 }
 @keyframes fadeIn {
     from { opacity:0; transform:translateY(6px); }
@@ -548,19 +491,8 @@ st.markdown(STYLES, unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────────────
 #  Session state
 # ─────────────────────────────────────────────────────────────────────────────
-_DEFAULTS = {
-    "processing": False,
-    "results": None,
-    "processing_time": None,
-    "uploaded_json": None,
-    "logs": [],
-    "pipe_status": {          # pending | running | complete | error
-        "upload":    "pending",
-        "extract":   "pending",
-        "taskmage":  "pending",
-        "hubspot":   "pending",
-        "email":     "pending",
-    },
+_DEFAULTS: Dict[str, Any] = {
+    "selected_job_id": None,   # job_id currently shown in detail panel
 }
 
 
@@ -570,39 +502,56 @@ def init_session_state() -> None:
             st.session_state[k] = v
 
 
-def reset_state() -> None:
-    for k, v in _DEFAULTS.items():
-        st.session_state[k] = v
-    log.info("State cleared — ready for new transcript.")
+# ─────────────────────────────────────────────────────────────────────────────
+#  API helpers
+# ─────────────────────────────────────────────────────────────────────────────
+def fetch_all_jobs() -> List[Dict[str, Any]]:
+    try:
+        r = httpx.get(f"{API_BASE_URL}/jobs", timeout=5.0)
+        r.raise_for_status()
+        return r.json()
+    except httpx.ConnectError:
+        return []
+    except httpx.HTTPError:
+        return []
+
+
+def fetch_job(job_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        r = httpx.get(f"{API_BASE_URL}/jobs/{job_id}", timeout=5.0)
+        r.raise_for_status()
+        return r.json()
+    except httpx.HTTPError:
+        return None
+
+
+def api_online() -> bool:
+    try:
+        r = httpx.get(f"{API_BASE_URL}/health", timeout=3.0)
+        return r.status_code == 200
+    except httpx.HTTPError:
+        return False
+    except httpx.ConnectError:
+        return False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  HTML helpers
+#  Elapsed time helper
 # ─────────────────────────────────────────────────────────────────────────────
-def _pipe_step_html(label: str, status: str, connector: bool = True) -> str:
-    lit = " lit" if status == "complete" else ""
-    conn_html = f'<div class="pipe-connector{lit}"></div>' if connector else ""
-    return (
-        f'<div class="pipe-step {status}">'
-        f'  <div class="ps-dot"></div>'
-        f'  <div class="ps-label">{label}</div>'
-        f"</div>"
-        f"{conn_html}"
-    )
-
-
-def _log_line_html(ts: str, level: str, msg: str) -> str:
-    css = f"log-{level}"
-    return (
-        f'<div class="log-line">'
-        f'<span class="log-ts">{ts}</span>'
-        f'<span class="{css}">{msg}</span>'
-        f"</div>"
-    )
+def _elapsed_seconds(job: Dict[str, Any]) -> Optional[float]:
+    try:
+        start = job.get("started_at")
+        end   = job.get("completed_at")
+        if start and end:
+            fmt = "%Y-%m-%dT%H:%M:%SZ"
+            return (datetime.strptime(end, fmt) - datetime.strptime(start, fmt)).total_seconds()
+    except Exception:
+        pass
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  UI sections
+#  Header
 # ─────────────────────────────────────────────────────────────────────────────
 def render_header() -> None:
     st.markdown(
@@ -610,123 +559,7 @@ def render_header() -> None:
         <div class="sc-header">
             <span class="wordmark">DealFlow</span>
             <span class="tagline">Multi-Agent Intelligence</span>
-            <span class="version">v2.0 · Fireflies AI</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_upload_section() -> tuple[bool, bool]:
-    """Returns (process_clicked, clear_clicked)."""
-    st.markdown(
-        '<div class="upload-zone"><div class="uz-label">⬆ Drop Transcript</div>',
-        unsafe_allow_html=True,
-    )
-
-    uploaded_file = st.file_uploader(
-        "Upload Fireflies JSON",
-        type=["json"],
-        help="Fireflies.ai transcript export (.json)",
-        label_visibility="collapsed",
-    )
-
-    # Cache parsed JSON immediately — survives button-click rerun
-    if uploaded_file is not None and st.session_state.uploaded_json is None:
-        try:
-            st.session_state.uploaded_json = json.load(uploaded_file)
-            st.session_state.pipe_status["upload"] = "complete"
-            log.info(f"Transcript loaded: {uploaded_file.name}  ({uploaded_file.size:,} bytes)")
-        except json.JSONDecodeError:
-            st.error("⚠️ Invalid JSON — please check the file.")
-            st.session_state.uploaded_json = None
-            log.error("JSON decode failed for uploaded file.")
-
-    col1, col2, col3 = st.columns([1, 1, 7])
-    with col1:
-        process_clicked = st.button(
-            "▶  ANALYZE",
-            type="primary",
-            disabled=st.session_state.processing,
-            use_container_width=True,
-        )
-    with col2:
-        clear_clicked = st.button("↺  CLEAR", use_container_width=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-    return process_clicked, clear_clicked
-
-
-def render_pipeline_strip() -> None:
-    ps = st.session_state.pipe_status
-    steps = [
-        ("UPLOAD",   ps["upload"]),
-        ("EXTRACT",  ps["extract"]),
-        ("TASKMAGE", ps["taskmage"]),
-        ("HUBSPOT",  ps["hubspot"]),
-        ("EMAIL",    ps["email"]),
-    ]
-    html = '<div class="pipeline-strip">'
-    for i, (label, status) in enumerate(steps):
-        connector = i < len(steps) - 1
-        html += _pipe_step_html(label, status, connector)
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
-
-
-def render_log_console(placeholder) -> None:
-    logs = st.session_state.get("logs", [])
-    lines_html = "".join(
-        _log_line_html(e["ts"], e["level"], e["msg"]) for e in logs[-80:]
-    )
-    html = f"""
-    <div class="log-console fade-in">
-        <div class="lc-topbar">
-            <span class="dot d-red"></span>
-            <span class="dot d-yellow"></span>
-            <span class="dot d-green"></span>
-            <span class="lc-title">AGENT LOG STREAM — {len(logs)} entries</span>
-        </div>
-        <div class="lc-body" id="log-body">
-            {lines_html if lines_html else '<span class="log-DEBUG">Waiting for events…</span>'}
-        </div>
-    </div>
-    <script>
-        // Auto-scroll log to bottom
-        var lb = document.getElementById('log-body');
-        if (lb) lb.scrollTop = lb.scrollHeight;
-    </script>
-    """
-    placeholder.markdown(html, unsafe_allow_html=True)
-
-
-def render_metrics() -> None:
-    pt = st.session_state.processing_time
-    results = st.session_state.results or {}
-    n_agents = sum(1 for k in ["agent_1_extraction","agent_2_tickets","agent_3_hubspot","agent_4_email"] if results.get(k))
-
-    topics = len((results.get("agent_1_extraction") or {}).get("topics", []))
-    tasks  = len((results.get("agent_2_tickets") or {}).get("tasks", []))
-
-    st.markdown(
-        f"""
-        <div class="metric-row fade-in">
-            <div class="metric-chip">
-                <span class="mc-label">Time</span>
-                <span class="mc-value accent">{'%.1fs' % pt if pt else '—'}</span>
-            </div>
-            <div class="metric-chip">
-                <span class="mc-label">Agents</span>
-                <span class="mc-value success">{n_agents}/4</span>
-            </div>
-            <div class="metric-chip">
-                <span class="mc-label">Topics</span>
-                <span class="mc-value">{topics}</span>
-            </div>
-            <div class="metric-chip">
-                <span class="mc-label">Tasks</span>
-                <span class="mc-value">{tasks}</span>
-            </div>
+            <span class="version">v2.0 · Pipeline Mode</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -734,7 +567,79 @@ def render_metrics() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Formatted content renderers
+#  Drop-zone notice (replaces the old upload widget)
+# ─────────────────────────────────────────────────────────────────────────────
+def render_drop_notice() -> None:
+    st.markdown(
+        """
+        <div class="drop-zone">
+            <span class="dz-icon">📂</span>
+            <span class="dz-text">Drop Fireflies JSON transcripts into</span>
+            <span class="dz-path">data/input/</span>
+            <span class="dz-text">— they are picked up automatically every 3 s</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Job queue panel (left column)
+# ─────────────────────────────────────────────────────────────────────────────
+_STATUS_BADGE = {
+    "pending":    ("pending",    "badge-pending"),
+    "processing": ("processing", "badge-processing"),
+    "complete":   ("complete",   "badge-complete"),
+    "failed":     ("failed",     "badge-failed"),
+}
+
+
+def render_job_queue(jobs: List[Dict[str, Any]]) -> None:
+    count = len(jobs)
+    st.markdown(
+        f'<div class="job-queue-panel">'
+        f'  <div class="jq-header">▪ Job Queue &nbsp;·&nbsp; {count} job{"s" if count != 1 else ""}</div>',
+        unsafe_allow_html=True,
+    )
+
+    if not jobs:
+        st.markdown(
+            '<div style="padding:1.2rem 1rem;font-family:IBM Plex Mono,monospace;'
+            'font-size:.75rem;color:#484F58;">No jobs yet — drop a file to begin.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    selected = st.session_state.selected_job_id
+
+    for job in jobs:
+        job_id  = job["id"]
+        status  = job.get("status", "pending")
+        label, badge_cls = _STATUS_BADGE.get(status, (status, "badge-pending"))
+        name    = job.get("source_file") or job.get("meeting_id") or job_id[:12]
+        ts      = (job.get("created_at") or "")[:16].replace("T", " ")
+        sel_cls = " selected" if job_id == selected else ""
+
+        st.markdown(
+            f'<div class="job-row{sel_cls}">'
+            f'  <div class="jr-top">'
+            f'    <span class="jr-badge {badge_cls}">{label}</span>'
+            f'    <span class="jr-name" title="{name}">{name}</span>'
+            f'  </div>'
+            f'  <div class="jr-meta">{ts}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("View", key=f"view_{job_id}", use_container_width=True):
+            st.session_state.selected_job_id = job_id
+            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Formatted content renderers (unchanged from original)
 # ─────────────────────────────────────────────────────────────────────────────
 def _render_extractor(data: dict) -> None:
     topics = data.get("topics", [])
@@ -755,7 +660,7 @@ def _render_extractor(data: dict) -> None:
         pills = "".join(f'<span class="fc-pill">⚡ {p}</span>' for p in pain_points)
         st.markdown(pills, unsafe_allow_html=True)
 
-    comps = data.get("competitors_mentioned", [])
+    comps = data.get("competitors", [])   # fixed: was "competitors_mentioned"
     if comps:
         st.markdown('<div class="fc-section-title">Competitors Mentioned</div>', unsafe_allow_html=True)
         pills = "".join(f'<span class="fc-pill">⚔ {c}</span>' for c in comps)
@@ -842,10 +747,10 @@ _RENDERERS = {
 }
 
 _CARD_META = {
-    "agent_1_extraction": ("🔍", "EXTRACTOR",     "icon-blue",   "Topics · Pain Points · Competitors",  "LAYER 1"),
-    "agent_2_tickets":    ("📋", "TASKMAGE",      "icon-green",  "Action items & assignees",             "LAYER 1"),
-    "agent_3_hubspot":    ("🏢", "HUBSPOT CRM",   "icon-orange", "Deal stage · Sentiment · CRM notes",  "LAYER 2"),
-    "agent_4_email":      ("✉️", "EMAIL CLOSER",  "icon-purple", "Follow-up email draft",               "LAYER 2"),
+    "agent_1_extraction": ("🔍", "EXTRACTOR",    "icon-blue",   "Topics · Pain Points · Competitors", "LAYER 1"),
+    "agent_2_tickets":    ("📋", "TASKMAGE",     "icon-green",  "Action items & assignees",            "LAYER 1"),
+    "agent_3_hubspot":    ("🏢", "HUBSPOT CRM",  "icon-orange", "Deal stage · Sentiment · CRM notes", "LAYER 2"),
+    "agent_4_email":      ("✉️", "EMAIL CLOSER", "icon-purple", "Follow-up email draft",              "LAYER 2"),
 }
 
 
@@ -886,8 +791,62 @@ def render_agent_card(key: str, data: dict) -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_results(results: dict) -> None:
-    render_metrics()
+# ─────────────────────────────────────────────────────────────────────────────
+#  Job detail panel (right column)
+# ─────────────────────────────────────────────────────────────────────────────
+def render_job_detail(job: Dict[str, Any]) -> None:
+    status  = job.get("status", "unknown")
+    elapsed = _elapsed_seconds(job)
+
+    # Metrics row
+    result  = job.get("result") or {}
+    topics  = len((result.get("agent_1_extraction") or {}).get("topics", []))
+    tasks   = len((result.get("agent_2_tickets") or {}).get("tasks", []))
+    n_agents = sum(
+        1 for k in ["agent_1_extraction", "agent_2_tickets", "agent_3_hubspot", "agent_4_email"]
+        if result.get(k) and not (result[k] or {}).get("error")
+    )
+
+    st.markdown(
+        f"""
+        <div class="metric-row fade-in">
+            <div class="metric-chip">
+                <span class="mc-label">Status</span>
+                <span class="mc-value {'success' if status=='complete' else 'accent'}">{status.upper()}</span>
+            </div>
+            <div class="metric-chip">
+                <span class="mc-label">Time</span>
+                <span class="mc-value accent">{'%.1fs' % elapsed if elapsed else '—'}</span>
+            </div>
+            <div class="metric-chip">
+                <span class="mc-label">Agents</span>
+                <span class="mc-value success">{n_agents}/4</span>
+            </div>
+            <div class="metric-chip">
+                <span class="mc-label">Topics</span>
+                <span class="mc-value">{topics}</span>
+            </div>
+            <div class="metric-chip">
+                <span class="mc-label">Tasks</span>
+                <span class="mc-value">{tasks}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if status == "failed":
+        st.error(f"Job failed: {job.get('error_message', 'Unknown error')[:400]}")
+        return
+
+    if status in ("pending", "processing"):
+        st.info(f"Job is **{status}** — results will appear here when complete.")
+        return
+
+    if not result:
+        st.warning("Job completed but no result data found.")
+        return
+
     st.divider()
 
     tab1, tab2, tab3, tab4 = st.tabs(
@@ -901,80 +860,20 @@ def render_results(results: dict) -> None:
     ]
     for tab, key in mapping:
         with tab:
-            payload = results.get(key)
-            if payload:
+            payload = result.get(key)
+            if payload and not (isinstance(payload, dict) and payload.get("error")):
                 render_agent_card(key, payload)
             else:
+                err = (payload or {}).get("error", "No data returned for this agent.")
                 st.markdown(
-                    '<div style="color:#484F58;font-family:IBM Plex Mono,monospace;'
-                    'font-size:.8rem;padding:1rem;">No data returned for this agent.</div>',
+                    f'<div style="color:#484F58;font-family:IBM Plex Mono,monospace;'
+                    f'font-size:.8rem;padding:1rem;">{err}</div>',
                     unsafe_allow_html=True,
                 )
 
     st.divider()
     with st.expander("🗂  FULL OUTPUT JSON"):
-        st.code(json.dumps(results, indent=2), language="json")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Analysis runner (updates pipe_status + logs as it progresses)
-# ─────────────────────────────────────────────────────────────────────────────
-def run_analysis(json_data: dict, log_placeholder) -> None:
-    ps = st.session_state.pipe_status
-
-    def _tick(key: str, status: str, msg: str, level: str = "INFO") -> None:
-        ps[key] = status
-        getattr(log, level.lower())(msg)
-        render_log_console(log_placeholder)
-
-    def _mark_running_as_error() -> None:
-        for key in ps:
-            if ps[key] == "running":
-                ps[key] = "error"
-
-    try:
-        orchestrator = DealFlowOrchestrator()
-        start = time.time()
-
-        _tick("extract",  "running", "Layer 1 started — invoking Extractor agent…")
-        _tick("taskmage", "running", "Layer 1 — Taskmage agent initialising…")
-
-        result = asyncio.run(orchestrator.process_transcript(json_data))
-
-        elapsed_l1 = time.time() - start
-        _tick("extract",  "complete", f"Extractor finished  ({elapsed_l1:.1f}s)")
-        _tick("taskmage", "complete", f"Taskmage finished   ({elapsed_l1:.1f}s)")
-
-        _tick("hubspot", "running", "Layer 2 started — HubSpot CRM agent…")
-        _tick("email",   "running", "Layer 2 — Email Closer agent…")
-
-        elapsed_l2 = time.time() - start
-        _tick("hubspot", "complete", f"HubSpot agent done  ({elapsed_l2:.1f}s)")
-        _tick("email",   "complete", f"Email Closer done   ({elapsed_l2:.1f}s)")
-
-        st.session_state.results = result
-        st.session_state.processing_time = time.time() - start
-        log.info(f"✅ All agents complete — total {st.session_state.processing_time:.2f}s")
-
-    except Exception as exc:
-        _mark_running_as_error()
-
-        # ── Terminal: full traceback so you can actually debug ──
-        full_tb = traceback.format_exc()
-        print("\n" + "─" * 60, file=sys.stdout, flush=True)
-        print("ANALYSIS FAILED — FULL TRACEBACK:", file=sys.stdout, flush=True)
-        print(full_tb, file=sys.stdout, flush=True)
-        print("─" * 60 + "\n", file=sys.stdout, flush=True)
-
-        # ── Logger (terminal handler sees this too) ──
-        log.error(f"Analysis failed: {type(exc).__name__}: {exc}")
-
-        # ── UI: clean one-liner only, no stack trace ──
-        st.error(f"❌ Analysis failed — **{type(exc).__name__}**: {exc}")
-
-    finally:
-        st.session_state.processing = False
-        render_log_console(log_placeholder)
+        st.code(json.dumps(result, indent=2), language="json")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -983,52 +882,44 @@ def run_analysis(json_data: dict, log_placeholder) -> None:
 def main() -> None:
     init_session_state()
     render_header()
+    render_drop_notice()
 
-    process_clicked, clear_clicked = render_upload_section()
+    # ── API connectivity check ────────────────────────────────────────────────
+    if not api_online():
+        st.warning(
+            "API server is not reachable — start it with: "
+            "`uvicorn api:app --host 0.0.0.0 --port 8000`"
+        )
 
-    if clear_clicked:
-        reset_state()
-        st.rerun()
+    # ── Fetch current job list ────────────────────────────────────────────────
+    jobs = fetch_all_jobs()
 
-    # Always show pipeline + log console once triggered
-    show_console = (
-        st.session_state.processing
-        or st.session_state.results
-        or any(s != "pending" for s in st.session_state.pipe_status.values())
-    )
+    # ── Two-column layout ─────────────────────────────────────────────────────
+    col_queue, col_detail = st.columns([1, 2], gap="large")
 
-    if show_console:
-        render_pipeline_strip()
-        log_placeholder = st.empty()
-        render_log_console(log_placeholder)
-    else:
-        log_placeholder = st.empty()
+    with col_queue:
+        render_job_queue(jobs)
 
-    # Trigger analysis
-    if process_clicked:
-        json_data = st.session_state.get("uploaded_json")
-
-        if json_data is None:
-            st.warning("⚠️ Please upload a Fireflies JSON transcript first.")
-            log.warning("Analyze clicked but no transcript loaded.")
-        elif "meeting_id" not in json_data and "transcript" not in json_data:
-            st.error("❌ Invalid format — expected Fireflies JSON with meeting_id or transcript.")
-            log.error("Invalid transcript schema — missing meeting_id and transcript keys.")
+    with col_detail:
+        selected_id = st.session_state.get("selected_job_id")
+        if selected_id:
+            job = fetch_job(selected_id)
+            if job:
+                render_job_detail(job)
+            else:
+                st.error(f"Could not load job `{selected_id[:12]}`.")
         else:
-            st.session_state.processing = True
-            st.session_state.pipe_status = {k: "pending" for k in st.session_state.pipe_status}
-            st.session_state.pipe_status["upload"] = "complete"
-            st.session_state.logs = []
-            log.info("═" * 55)
-            log.info("ANALYSIS STARTED")
-            log.info("═" * 55)
-            render_pipeline_strip()
-            log_placeholder = st.empty()
-            run_analysis(json_data, log_placeholder)
-            st.rerun()
+            st.markdown(
+                '<div style="color:#484F58;font-family:IBM Plex Mono,monospace;'
+                'font-size:.85rem;padding:2rem 1rem;">← Select a job from the queue to view results</div>',
+                unsafe_allow_html=True,
+            )
 
-    if st.session_state.results:
-        render_results(st.session_state.results)
+    # ── Auto-refresh while jobs are in flight ─────────────────────────────────
+    active = any(j["status"] in ("pending", "processing") for j in jobs)
+    if active:
+        time.sleep(3)
+        st.rerun()
 
 
 if __name__ == "__main__":

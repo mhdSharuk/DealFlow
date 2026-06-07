@@ -1,4 +1,10 @@
 venv/
 .env
-.pyc
+*.pyc
+__pycache__/
 misc/
+data/tasks.db
+data/input/
+data/processing/
+data/processed/
+data/output/

@@ -61,6 +61,10 @@ async def file_watcher_loop() -> None:
             for json_file in sorted(INPUT_DIR.glob("*.json")):
                 if json_file.name in seen:
                     continue
+                # Skip files that already have a job record (survives server restarts)
+                if job_service.job_exists_for_file(json_file.name):
+                    seen.add(json_file.name)
+                    continue
                 seen.add(json_file.name)
                 try:
                     raw = json.loads(json_file.read_text(encoding="utf-8"))
@@ -107,11 +111,17 @@ async def worker_loop() -> None:
             log.info("Completed job=%s  meeting_id=%s", job_id[:8], meeting_id)
 
         except Exception as exc:
-            err = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+            # Unwrap ExceptionGroup (raised by ADK's ParallelAgent / asyncio.TaskGroup)
+            # to surface the actual root-cause exception instead of the wrapper
+            root = exc
+            if isinstance(exc, ExceptionGroup) and exc.exceptions:
+                root = exc.exceptions[0]
+
+            err = f"{type(root).__name__}: {root}\n\nFull traceback:\n{traceback.format_exc()}"
             job_service.update_job_status(job_id, "failed", error_message=err)
             if source.exists():
                 source.rename(PROCESSED_DIR / f"{job_id}_failed.json")
-            log.error("Failed    job=%s  error=%s: %s", job_id[:8], type(exc).__name__, exc)
+            log.error("Failed    job=%s  root_cause=%s: %s", job_id[:8], type(root).__name__, root)
 
         finally:
             job_queue.task_done()

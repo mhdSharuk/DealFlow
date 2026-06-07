@@ -104,6 +104,17 @@ class JobService:
         finally:
             conn.close()
 
+    def job_exists_for_file(self, source_file: str) -> bool:
+        """Return True if a job has already been created for this filename."""
+        conn = _connect(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT id FROM jobs WHERE source_file = ? LIMIT 1", (source_file,)
+            ).fetchone()
+            return row is not None
+        finally:
+            conn.close()
+
     @staticmethod
     def _deserialise(row: Dict[str, Any]) -> Dict[str, Any]:
         for col in ("raw_payload", "result"):

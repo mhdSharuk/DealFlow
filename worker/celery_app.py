@@ -3,7 +3,7 @@ import ssl
 
 from celery import Celery
 
-app = Celery("dealflow")
+app = Celery("dealflow", include=["worker.tasks"])
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 

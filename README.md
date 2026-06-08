@@ -6,6 +6,8 @@
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Google ADK](https://img.shields.io/badge/Google%20ADK-2.0+-orange.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-teal.svg)
+![Celery](https://img.shields.io/badge/Celery-5.3+-brightgreen.svg)
+![Redis](https://img.shields.io/badge/Redis-7-red.svg)
 
 ---
 
@@ -41,7 +43,9 @@ DealFlow is an intelligent multi-agent system that automates post-sales-call wor
 
 - **Zero-click pipeline** — drop a file, results appear automatically
 - **File watcher** — polls `data/input/` every 3 seconds for new transcripts
-- **Async job queue** — `asyncio.Queue` + SQLite for non-blocking, persistent job tracking
+- **Celery + Redis task queue** — decoupled, persistent job dispatch with at-least-once delivery
+- **Retry with backoff** — failed jobs are retried up to 3 times (30 s → 60 s → 120 s)
+- **Dead letter queue** — jobs that exhaust retries are routed to a DLQ and surfaced via `/jobs/dead`
 - **Live dashboard** — Streamlit polls the FastAPI backend and updates in real time
 - **Job history** — every run is stored in SQLite; click any past job to reload its results
 - **Multi-agent processing** — four specialised Gemini agents run in two parallel layers
@@ -55,30 +59,30 @@ DealFlow is an intelligent multi-agent system that automates post-sales-call wor
 
 ```mermaid
 flowchart TD
-    A([📂 Drop JSON\ndata/input/])
-    A -->|"detected every 3 s"| B[File Watcher]
-    B -->|"create job · move file"| C[(SQLite\njobs table)]
-    B -->|enqueue job_id| D[asyncio.Queue]
-    D --> E[Worker]
+    A([Drop JSON into\ndata/input/]) -->|"poll every 3 s"| B["File Watcher\n(FastAPI)"]
+    B -->|"create job record"| C[("SQLite\njobs table")]
+    B -->|"apply_async"| D[("Redis\ntranscripts queue")]
+
+    D -->|"consume"| E["Celery Worker"]
 
     E --> L1
 
     subgraph L1["Layer 1 — runs in parallel"]
         direction LR
-        EX[🔍 Extractor\ntopics · pain points · competitors]
-        TM[📋 Taskmage\naction items · assignees]
+        EX["Extractor Agent\ntopics · pain points · competitors"]
+        TM["Task Agent\naction items · assignees"]
     end
 
     L1 --> L2
 
     subgraph L2["Layer 2 — runs in parallel"]
         direction LR
-        HS[🏢 HubSpot\ndeal stage · sentiment · CRM notes]
-        EM[✉️ Email\nfollow-up draft]
+        HS["HubSpot Agent\ndeal stage · sentiment · CRM notes"]
+        EM["Email Agent\nfollow-up draft"]
     end
 
     L2 -->|"save result · mark complete"| C
-    C -->|"GET /jobs  ·  GET /jobs/id"| UI([🖥️ Streamlit Dashboard\nauto-refreshes every 3 s])
+    C -->|"GET /jobs"| UI(["Streamlit Dashboard\nauto-refreshes every 3 s"])
 ```
 
 ### Job Lifecycle
@@ -86,33 +90,33 @@ flowchart TD
 ```mermaid
 stateDiagram-v2
     direction LR
-    [*] --> pending : File detected\njob created in SQLite
-    pending --> processing : Worker picks up\njob_id from queue
-    processing --> complete : All 4 agents\nfinished successfully
-    processing --> failed : Exception raised\nerror stored in SQLite
+    [*] --> pending : File detected
+    pending --> processing : Celery worker picks up job
+    processing --> complete : All 4 agents succeeded
+    processing --> failed : Exception on attempt 1–3
+    failed --> processing : Retry with exponential backoff
+    failed --> dead : Retries exhausted — routed to DLQ
     complete --> [*]
-    failed --> [*]
+    dead --> [*] : Visible at GET /jobs/dead
 ```
 
-### Two-Process Model
+### Deployment Model
 
 ```mermaid
 flowchart LR
-    subgraph T1 ["Terminal 1"]
-        API["uvicorn api:app\n:8000\n\n• File watcher\n• Worker loop\n• REST endpoints"]
+    subgraph Compose["Docker Compose"]
+        API["FastAPI :8000\nfile watcher · REST endpoints"]
+        W["Celery Worker\ntranscripts · dead_letter queues"]
+        UI["Streamlit :8501\ndashboard"]
+        R[("Redis :6379\nmessage broker")]
+        DB[("SQLite\ntasks.db")]
     end
 
-    subgraph T2 ["Terminal 2"]
-        UI["streamlit run ui.py\n:8501\n\n• Job queue panel\n• Result detail view\n• Auto-refresh every 3 s"]
-    end
-
-    subgraph DB ["data/tasks.db  (shared, WAL mode)"]
-        J[jobs table]
-        TT[tasks table]
-    end
-
-    API <-->|reads + writes| DB
-    UI -->|GET /jobs\nGET /jobs/id\nGET /health| API
+    API -->|"publish task"| R
+    R -->|"consume task"| W
+    W <-->|"read · write"| DB
+    API <-->|"read · write"| DB
+    UI -->|"GET /jobs\nGET /health"| API
 ```
 
 ---
@@ -168,12 +172,18 @@ Composes a contextualised follow-up email referencing specific discussion points
 
 ```
 DealFlow/
-├── api.py                          # FastAPI app — file watcher, worker, REST endpoints
-├── orchestrator.py                 # DealFlowOrchestrator — runs both parallel agent layers
+├── api.py                          # FastAPI app — file watcher, REST endpoints
 ├── ui.py                           # Streamlit dashboard — read-only, polls FastAPI
 ├── main.py                         # CLI entry point (single-file batch processing)
-├── config.py                       # Paths, env vars, ensure_directories()
 ├── requirements.txt
+│
+├── worker/
+│   ├── celery_app.py               # Celery config — Redis broker, queue routing, delivery guarantees
+│   └── tasks.py                    # process_transcript task + handle_dead_letter DLQ sink
+│
+├── core/
+│   ├── config.py                   # Paths, env vars, ensure_directories()
+│   └── orchestrator.py             # DealFlowOrchestrator — runs both parallel agent layers
 │
 ├── agents/
 │   ├── extractor_agent/
@@ -207,12 +217,28 @@ DealFlow/
 
 ## Installation
 
-### Prerequisites
+### Option A — Docker Compose (recommended)
 
-- Python 3.10+
-- Google Cloud project with Gemini API enabled
+Requires Docker and Docker Compose.
 
-### Setup
+```bash
+# 1. Clone the repository
+git clone <repository-url>
+cd DealFlow
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env and set GOOGLE_API_KEY and GEMINI_MODEL_NAME
+
+# 3. Start all services (Redis, API, Celery worker, Dashboard)
+docker compose up --build
+```
+
+The dashboard will be available at `http://localhost:8501`.
+
+### Option B — Local Setup
+
+Requires Python 3.10+ and a running Redis instance.
 
 ```bash
 # 1. Clone and enter the repository
@@ -228,7 +254,7 @@ pip install -r requirements.txt
 
 # 4. Configure environment
 cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY and GEMINI_MODEL_NAME
+# Edit .env and add GOOGLE_API_KEY, GEMINI_MODEL_NAME, CELERY_BROKER_URL
 ```
 
 ---
@@ -241,6 +267,8 @@ cp .env.example .env
 |---|---|---|
 | `GOOGLE_API_KEY` | Google Cloud API key for Gemini | Yes |
 | `GEMINI_MODEL_NAME` | Gemini model to use (e.g. `gemini-2.5-flash`) | Yes |
+| `CELERY_BROKER_URL` | Redis broker URL (default: `redis://redis:6379/0`) | No |
+| `CELERY_RESULT_BACKEND` | Redis result backend URL (default: `redis://redis:6379/1`) | No |
 | `API_BASE_URL` | FastAPI base URL (default: `http://localhost:8000`) | No |
 
 ### Auto-Created Directories
@@ -258,16 +286,10 @@ On first run, the following directories are created automatically:
 
 ## Usage
 
-### Pipeline Mode (recommended)
-
-Start both processes in separate terminals:
+### Docker Compose (recommended)
 
 ```bash
-# Terminal 1 — pipeline backend
-uvicorn api:app --host 0.0.0.0 --port 8000
-
-# Terminal 2 — dashboard
-streamlit run ui.py
+docker compose up
 ```
 
 Then drop any Fireflies.ai transcript JSON into `data/input/`:
@@ -276,7 +298,20 @@ Then drop any Fireflies.ai transcript JSON into `data/input/`:
 cp my_transcript.json data/input/
 ```
 
-The file is detected within 3 seconds, queued, processed through all four agents, and results appear in the dashboard at `http://localhost:8501`.
+The file is detected within 3 seconds, dispatched to the Celery worker via Redis, processed through all four agents, and results appear in the dashboard at `http://localhost:8501`.
+
+### Local — three separate terminals
+
+```bash
+# Terminal 1 — FastAPI (file watcher + REST endpoints)
+uvicorn api:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 — Celery worker
+celery -A worker.celery_app worker --loglevel=info -Q transcripts,dead_letter
+
+# Terminal 3 — Streamlit dashboard
+streamlit run ui.py
+```
 
 ### CLI Mode (single file, no server needed)
 
@@ -291,17 +326,15 @@ python main.py --sample
 
 ## API Reference
 
-The FastAPI backend exposes three endpoints:
-
 ### `GET /health`
-Returns server status and current queue depth.
+Returns server and broker status.
 
 ```json
-{ "status": "ok", "queue_size": 0 }
+{ "status": "ok", "broker": "redis", "queue": "transcripts" }
 ```
 
 ### `GET /jobs`
-Returns a summary list of all jobs, newest first. Does not include `raw_payload` or `result` to keep responses small.
+Returns a summary list of all jobs, newest first.
 
 ```json
 [
@@ -317,7 +350,22 @@ Returns a summary list of all jobs, newest first. Does not include `raw_payload`
 ]
 ```
 
-**Job status values:** `pending` → `processing` → `complete` / `failed`
+**Job status values:** `pending` → `processing` → `complete` / `failed` → `dead`
+
+### `GET /jobs/dead`
+Returns all jobs that exhausted retries and were routed to the dead letter queue.
+
+```json
+[
+  {
+    "id": "3a9f1b...",
+    "source_file": "transcript.json",
+    "status": "dead",
+    "error_message": "[DLQ] ConnectionError: ...",
+    "created_at": "2026-06-07T10:00:00Z"
+  }
+]
+```
 
 ### `GET /jobs/{job_id}`
 Returns the full job record including the complete agent result payload.

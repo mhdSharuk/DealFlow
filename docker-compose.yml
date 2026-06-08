@@ -1,11 +1,5 @@
 services:
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-
   api:
     build: .
     image: dealflow:latest
@@ -19,10 +13,7 @@ services:
       - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       - API_BASE_URL=http://localhost:8000
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    depends_on:
-      - redis
+      - REDIS_URL=${REDIS_URL}
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -35,8 +26,6 @@ services:
   worker:
     build: .
     image: dealflow:latest
-    # Consumes from both queues: 'transcripts' (main work) and 'dead_letter' (DLQ sink).
-    # --concurrency=2 allows two transcripts to process in parallel per worker container.
     command: celery -A worker.celery_app worker --loglevel=info -Q transcripts,dead_letter --concurrency=2
     volumes:
       - dealflow_data:/app/data
@@ -44,10 +33,7 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    depends_on:
-      - redis
+      - REDIS_URL=${REDIS_URL}
     restart: unless-stopped
 
   ui:

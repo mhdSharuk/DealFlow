@@ -4,11 +4,11 @@ from celery import Celery
 
 app = Celery("dealflow")
 
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
 app.conf.update(
-    broker_url=os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"),
-    result_backend=os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1"),
-    # Acknowledge the message only after the task finishes — guarantees at-least-once delivery.
-    # If the worker dies mid-task the broker re-queues the message for another worker.
+    broker_url=redis_url,
+    result_backend=redis_url,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     task_routes={

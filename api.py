@@ -1,57 +1,35 @@
+import asyncio
 import json
 import logging
 import sqlite3
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
-import asyncio
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.config import (
-    DATABASE_PATH,
-    INPUT_DIR,
-    PROCESSING_DIR,
-    ensure_directories,
-)
+from core.config import DATABASE_PATH, INPUT_DIR, PROCESSING_DIR, ensure_directories
 from services.job_service import JobService
 from worker.tasks import process_transcript
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("dealflow.api")
 
 job_service: Optional[JobService] = None
 
 
-# ── Startup helpers ───────────────────────────────────────────────────────────
-
 def _reset_stuck_jobs() -> None:
-    """Mark any jobs left in 'processing' from a previous crash as failed."""
     try:
         conn = sqlite3.connect(DATABASE_PATH)
-        conn.execute(
-            "UPDATE jobs SET status='failed', error_message='Server restart' "
-            "WHERE status='processing'"
-        )
+        conn.execute("UPDATE jobs SET status='failed', error_message='Server restart' WHERE status='processing'")
         conn.commit()
         conn.close()
     except Exception as exc:
         log.warning("Could not reset stuck jobs: %s", exc)
 
 
-# ── File watcher ──────────────────────────────────────────────────────────────
-
 async def file_watcher_loop() -> None:
-    """
-    Poll data/input/ every 3 seconds for new .json files.
-    On discovery: read payload → create SQLite job → move file to processing/
-    → dispatch to Celery 'transcripts' queue via apply_async.
-    """
     seen: set = set()
     while True:
         try:
@@ -67,8 +45,6 @@ async def file_watcher_loop() -> None:
                     job_id = job_service.create_job(raw, source_file=json_file.name)
                     dest = PROCESSING_DIR / f"{job_id}.json"
                     json_file.rename(dest)
-                    # Dispatch to Celery — decouples the watcher (producer) from
-                    # the worker (consumer) via Redis as the message broker.
                     process_transcript.apply_async(args=[job_id], queue="transcripts")
                     log.info("Dispatched  job=%s  file=%s", job_id[:8], json_file.name)
                 except Exception as exc:
@@ -77,8 +53,6 @@ async def file_watcher_loop() -> None:
             log.error("file_watcher_loop error: %s", exc)
         await asyncio.sleep(3)
 
-
-# ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,8 +72,6 @@ async def lifespan(app: FastAPI):
     log.info("Shutdown complete")
 
 
-# ── App ───────────────────────────────────────────────────────────────────────
-
 app = FastAPI(title="DealFlow API", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
@@ -109,8 +81,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health() -> Dict[str, Any]:
@@ -124,14 +94,13 @@ async def list_jobs() -> List[Dict[str, Any]]:
 
 @app.get("/jobs/dead")
 async def list_dead_jobs() -> List[Dict[str, Any]]:
-    """Return all jobs that exhausted retries and were routed to the dead letter queue."""
     return job_service.get_jobs_by_status("dead")
 
 
 @app.get("/jobs/{job_id}")
 async def get_job(job_id: str) -> Dict[str, Any]:
     job = job_service.get_job(job_id)
-    if job is None:
+    if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
     return job
 

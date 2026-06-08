@@ -42,9 +42,6 @@ def process_transcript(self, job_id: str) -> None:
 
         meeting_id = (result.get("metadata") or {}).get("meeting_id")
         _job_service.update_job_status(job_id, "complete", result=result, meeting_id=meeting_id)
-        if source.exists():
-            source.rename(PROCESSED_DIR / f"{job_id}.json")
-
         log.info("Completed job=%s  meeting_id=%s  duration=%.2fs", job_id[:8], meeting_id, duration)
 
     except Exception as exc:

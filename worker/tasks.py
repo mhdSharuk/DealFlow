@@ -4,7 +4,6 @@ import traceback
 
 from celery.utils.log import get_task_logger
 
-from core.config import PROCESSED_DIR, PROCESSING_DIR
 from core.orchestrator import DealFlowOrchestrator
 from services.job_service import JobService
 from worker.celery_app import app
@@ -34,7 +33,6 @@ def process_transcript(self, job_id: str) -> None:
         return
 
     _job_service.update_job_status(job_id, "processing")
-    source = PROCESSING_DIR / f"{job_id}.json"
     log.info("Processing job=%s  file=%s", job_id[:8], job.get("source_file"))
 
     try:
@@ -61,7 +59,5 @@ def process_transcript(self, job_id: str) -> None:
             log.warning("Retrying job=%s  attempt=%d/%d  in=%ds", job_id[:8], retry_num, self.max_retries, countdown)
             raise self.retry(exc=root, countdown=countdown)
 
-        if source.exists():
-            source.rename(PROCESSED_DIR / f"{job_id}_failed.json")
         handle_dead_letter.apply_async(args=[job_id, str(root)], queue="dead_letter")
         raise

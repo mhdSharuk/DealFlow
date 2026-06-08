@@ -7,13 +7,15 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - dealflow_data:/app/data
+      - ./data:/app/data
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       - API_BASE_URL=http://localhost:8000
       - REDIS_URL=${REDIS_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -28,12 +30,14 @@ services:
     image: dealflow:latest
     command: celery -A worker.celery_app worker --loglevel=info -Q transcripts,dead_letter --concurrency=2
     volumes:
-      - dealflow_data:/app/data
+      - ./data:/app/data
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       - REDIS_URL=${REDIS_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
     restart: unless-stopped
 
   ui:
@@ -51,6 +55,3 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-volumes:
-  dealflow_data:
-    driver: local

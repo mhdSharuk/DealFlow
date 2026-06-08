@@ -1,10 +1,12 @@
 import os
-
+from dotenv import load_dotenv
 from celery import Celery
+
+load_dotenv(dotenv_path=os.getcwd() + '/.env', override=True)
 
 app = Celery("dealflow")
 
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_url = os.getenv("REDIS_URL")
 
 app.conf.update(
     broker_url=redis_url,

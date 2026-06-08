@@ -1,70 +1,39 @@
 import json
-import sqlite3
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from core.config import DATABASE_PATH, JOBS_TABLE_PATH
+from core.config import get_supabase_client
 
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _connect(db_path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 class JobService:
-    def __init__(self, db_path: Path = DATABASE_PATH):
-        self.db_path = db_path
-        self._init_table()
-
-    def _init_table(self) -> None:
-        conn = _connect(self.db_path)
-        with open(JOBS_TABLE_PATH, "r") as f:
-            conn.executescript(f.read())
-        conn.close()
+    def __init__(self):
+        self.db = get_supabase_client()
 
     def create_job(self, raw_payload: Dict[str, Any], source_file: str = "") -> str:
         job_id = uuid.uuid4().hex
-        conn = _connect(self.db_path)
-        try:
-            conn.execute(
-                """INSERT INTO jobs (id, status, raw_payload, source_file, created_at)
-                   VALUES (?, 'pending', ?, ?, ?)""",
-                (job_id, json.dumps(raw_payload), source_file, _utcnow()),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        self.db.table("jobs").insert({
+            "id": job_id,
+            "status": "pending",
+            "raw_payload": json.dumps(raw_payload),
+            "source_file": source_file,
+            "created_at": _utcnow(),
+        }).execute()
         return job_id
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        conn = _connect(self.db_path)
-        try:
-            row = conn.execute(
-                "SELECT * FROM jobs WHERE id = ?", (job_id,)
-            ).fetchone()
-            return self._deserialise(dict(row)) if row else None
-        finally:
-            conn.close()
+        res = self.db.table("jobs").select("*").eq("id", job_id).single().execute()
+        return self._deserialise(res.data) if res.data else None
 
     def get_all_jobs(self) -> List[Dict[str, Any]]:
-        conn = _connect(self.db_path)
-        try:
-            rows = conn.execute(
-                """SELECT id, meeting_id, source_file, status,
-                          created_at, started_at, completed_at
-                   FROM jobs ORDER BY created_at DESC"""
-            ).fetchall()
-            return [dict(r) for r in rows]
-        finally:
-            conn.close()
+        res = self.db.table("jobs").select(
+            "id, meeting_id, source_file, status, created_at, started_at, completed_at"
+        ).order("created_at", desc=True).execute()
+        return res.data or []
 
     def update_job_status(
         self,
@@ -75,57 +44,30 @@ class JobService:
         meeting_id: Optional[str] = None,
     ) -> None:
         now = _utcnow()
-        conn = _connect(self.db_path)
-        try:
-            if status == "processing":
-                conn.execute(
-                    "UPDATE jobs SET status=?, started_at=? WHERE id=?",
-                    (status, now, job_id),
-                )
-            elif status in ("complete", "failed"):
-                conn.execute(
-                    """UPDATE jobs
-                       SET status=?, completed_at=?, result=?,
-                           error_message=?, meeting_id=?
-                       WHERE id=?""",
-                    (
-                        status, now,
-                        json.dumps(result) if result is not None else None,
-                        error_message,
-                        meeting_id,
-                        job_id,
-                    ),
-                )
-            else:
-                conn.execute(
-                    "UPDATE jobs SET status=? WHERE id=?", (status, job_id)
-                )
-            conn.commit()
-        finally:
-            conn.close()
+        if status == "processing":
+            payload = {"status": status, "started_at": now}
+        elif status in ("complete", "failed"):
+            payload = {
+                "status": status,
+                "completed_at": now,
+                "result": json.dumps(result) if result is not None else None,
+                "error_message": error_message,
+                "meeting_id": meeting_id,
+            }
+        else:
+            payload = {"status": status, "error_message": error_message}
+
+        self.db.table("jobs").update(payload).eq("id", job_id).execute()
 
     def get_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
-        conn = _connect(self.db_path)
-        try:
-            rows = conn.execute(
-                """SELECT id, meeting_id, source_file, status,
-                          created_at, started_at, completed_at, error_message
-                   FROM jobs WHERE status = ? ORDER BY created_at DESC""",
-                (status,),
-            ).fetchall()
-            return [dict(r) for r in rows]
-        finally:
-            conn.close()
+        res = self.db.table("jobs").select(
+            "id, meeting_id, source_file, status, created_at, started_at, completed_at, error_message"
+        ).eq("status", status).order("created_at", desc=True).execute()
+        return res.data or []
 
     def job_exists_for_file(self, source_file: str) -> bool:
-        conn = _connect(self.db_path)
-        try:
-            row = conn.execute(
-                "SELECT id FROM jobs WHERE source_file = ? LIMIT 1", (source_file,)
-            ).fetchone()
-            return row is not None
-        finally:
-            conn.close()
+        res = self.db.table("jobs").select("id").eq("source_file", source_file).limit(1).execute()
+        return bool(res.data)
 
     @staticmethod
     def _deserialise(row: Dict[str, Any]) -> Dict[str, Any]:

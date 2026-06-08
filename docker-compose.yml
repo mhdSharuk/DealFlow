@@ -14,6 +14,8 @@ services:
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       - API_BASE_URL=http://localhost:8000
       - REDIS_URL=${REDIS_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -34,6 +36,8 @@ services:
       - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       - REDIS_URL=${REDIS_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
     restart: unless-stopped
 
   ui:

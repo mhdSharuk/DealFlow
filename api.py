@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import sqlite3
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
@@ -9,7 +8,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.config import DATABASE_PATH, INPUT_DIR, PROCESSING_DIR, ensure_directories
+from core.config import INPUT_DIR, ensure_directories, get_supabase_client
 from services.job_service import JobService
 from worker.tasks import process_transcript
 
@@ -21,10 +20,9 @@ job_service: Optional[JobService] = None
 
 def _reset_stuck_jobs() -> None:
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.execute("UPDATE jobs SET status='failed', error_message='Server restart' WHERE status='processing'")
-        conn.commit()
-        conn.close()
+        get_supabase_client().table("jobs").update(
+            {"status": "failed", "error_message": "Server restart"}
+        ).eq("status", "processing").execute()
     except Exception as exc:
         log.warning("Could not reset stuck jobs: %s", exc)
 
@@ -43,8 +41,7 @@ async def file_watcher_loop() -> None:
                 try:
                     raw = json.loads(json_file.read_text(encoding="utf-8"))
                     job_id = job_service.create_job(raw, source_file=json_file.name)
-                    dest = PROCESSING_DIR / f"{job_id}.json"
-                    json_file.rename(dest)
+                    json_file.unlink()
                     process_transcript.apply_async(args=[job_id], queue="transcripts")
                     log.info("Dispatched  job=%s  file=%s", job_id[:8], json_file.name)
                 except Exception as exc:

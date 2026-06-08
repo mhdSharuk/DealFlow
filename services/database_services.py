@@ -1,74 +1,32 @@
-import sqlite3
 from typing import List, Optional
 
-from core.config import DATABASE_PATH, TICKETS_TABLE_PATH
+from core.config import get_supabase_client
 
 
 class DatabaseService:
-    def __init__(self, db_path=DATABASE_PATH):
-        self.db_path = db_path
-        self._init_database()
+    def __init__(self):
+        self.db = get_supabase_client()
 
-    def _init_database(self):
-        conn = sqlite3.connect(self.db_path)
-        with open(TICKETS_TABLE_PATH) as f:
-            conn.execute(f.read())
-        conn.commit()
-        conn.close()
-
-    def insert_tasks(self, assignee: str, action_item: str, blocker: Optional[str] = None, meeting_id: Optional[str] = None):
-        conn = sqlite3.connect(self.db_path)
-        try:
-            conn.execute(
-                "INSERT INTO tasks (assignee_name, task_description, blocker_notes, meeting_id) VALUES (?, ?, ?, ?)",
-                (assignee, action_item, blocker, meeting_id),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-    def insert_tasks_batch(self, tasks: List[dict], meeting_id: Optional[str] = None) -> List[int]:
-        conn = sqlite3.connect(self.db_path)
-        try:
-            cursor = conn.cursor()
-            task_ids = []
-            for task in tasks:
-                cursor.execute(
-                    "INSERT INTO tasks (assignee_name, task_description, blocker_notes, meeting_id) VALUES (?, ?, ?, ?)",
-                    (task.get("assignee", ""), task.get("action_items", ""), task.get("blocker"), meeting_id),
-                )
-                task_ids.append(cursor.lastrowid)
-            conn.commit()
-            return task_ids
-        finally:
-            conn.close()
+    def insert_tasks_batch(self, tasks: List[dict], meeting_id: Optional[str] = None) -> None:
+        rows = [
+            {
+                "assignee_name": task.get("assignee", ""),
+                "task_description": task.get("action_items", ""),
+                "blocker_notes": task.get("blocker"),
+                "meeting_id": meeting_id,
+            }
+            for task in tasks
+        ]
+        self.db.table("tasks").insert(rows).execute()
 
     def get_tasks_by_assignee(self, assignee_name: str) -> List[dict]:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            rows = conn.execute(
-                "SELECT * FROM tasks WHERE assignee_name = ? ORDER BY created_at DESC",
-                (assignee_name,),
-            ).fetchall()
-            return [dict(row) for row in rows]
-        finally:
-            conn.close()
+        res = self.db.table("tasks").select("*").eq("assignee_name", assignee_name).order("created_at", desc=True).execute()
+        return res.data or []
 
     def get_all_tasks(self) -> List[dict]:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
-            return [dict(row) for row in rows]
-        finally:
-            conn.close()
+        res = self.db.table("tasks").select("*").order("created_at", desc=True).execute()
+        return res.data or []
 
     def update_task_status(self, task_id: int, status: str) -> bool:
-        conn = sqlite3.connect(self.db_path)
-        try:
-            cursor = conn.execute("UPDATE tasks SET status = ? WHERE id = ?", (status, task_id))
-            conn.commit()
-            return cursor.rowcount > 0
-        finally:
-            conn.close()
+        res = self.db.table("tasks").update({"status": status}).eq("id", task_id).execute()
+        return bool(res.data)

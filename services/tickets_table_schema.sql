@@ -1,6 +1,5 @@
--- schema.sql
 CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     assignee_name VARCHAR NOT NULL,
     task_description TEXT NOT NULL,
     blocker_notes TEXT,

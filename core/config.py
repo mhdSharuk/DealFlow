@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
-load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env", override=True)
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 BASE_DIR  = Path(__file__).parent.parent
 INPUT_DIR = BASE_DIR / "data" / "input"

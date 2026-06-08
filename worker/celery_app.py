@@ -1,11 +1,12 @@
 import os
-import ssl
-
+from dotenv import load_dotenv
 from celery import Celery
 
-app = Celery("dealflow", include=["worker.tasks"])
+load_dotenv(dotenv_path=os.getcwd() + '/.env', override=True)
 
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+app = Celery("dealflow")
+
+redis_url = os.getenv("REDIS_URL")
 
 ssl_options = {"ssl_cert_reqs": ssl.CERT_NONE} if redis_url.startswith("rediss://") else {}
 

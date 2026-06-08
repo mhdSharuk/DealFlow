@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import INPUT_DIR, ensure_directories, get_supabase_client
 from services.job_service import JobService
+from worker.celery_app import app as celery_app
 from worker.tasks import process_transcript
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S")
@@ -82,6 +83,26 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> Dict[str, Any]:
     return {"status": "ok", "broker": "redis", "queue": "transcripts"}
+
+
+@app.get("/metrics")
+async def metrics() -> Dict[str, Any]:
+    inspector = celery_app.control.inspect()
+    active = inspector.active() or {}
+    reserved = inspector.reserved() or {}
+
+    queue_depth = sum(len(tasks) for tasks in reserved.values())
+    active_count = sum(len(tasks) for tasks in active.values())
+
+    return {
+        "queue_depth": queue_depth,
+        "active_tasks": active_count,
+        "jobs_pending":    len(job_service.get_jobs_by_status("pending")),
+        "jobs_processing": len(job_service.get_jobs_by_status("processing")),
+        "jobs_complete":   len(job_service.get_jobs_by_status("complete")),
+        "jobs_failed":     len(job_service.get_jobs_by_status("failed")),
+        "jobs_dead":       len(job_service.get_jobs_by_status("dead")),
+    }
 
 
 @app.get("/jobs")

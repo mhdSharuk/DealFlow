@@ -1,11 +1,3 @@
-"""
-Celery tasks for DealFlow transcript processing.
-
-Flow:
-  process_transcript  →  (on failure, retries 1-3 with exponential backoff)
-                      →  (after max_retries) → handle_dead_letter (DLQ)
-"""
-
 import asyncio
 import logging
 import traceback
@@ -13,7 +5,7 @@ import traceback
 from celery import Task
 from celery.utils.log import get_task_logger
 
-from core.config import DATABASE_PATH, PROCESSED_DIR, PROCESSING_DIR
+from core.config import PROCESSED_DIR, PROCESSING_DIR
 from core.orchestrator import DealFlowOrchestrator
 from services.job_service import JobService
 from worker.celery_app import app
@@ -24,35 +16,20 @@ _job_service = JobService()
 _orchestrator = DealFlowOrchestrator()
 
 
-# ── Dead Letter Queue sink ────────────────────────────────────────────────────
-
 @app.task(queue="dead_letter")
 def handle_dead_letter(job_id: str, error: str) -> None:
-    """
-    DLQ consumer: receives jobs that exhausted all retries.
-    Marks them 'dead' in SQLite so they surface via GET /jobs/dead.
-    """
     log.error("DLQ received job=%s  error=%s", job_id[:8], error[:200])
     _job_service.update_job_status(job_id, "dead", error_message=f"[DLQ] {error}")
 
 
-# ── Main task ─────────────────────────────────────────────────────────────────
-
 class _TranscriptTask(Task):
-    """Custom base that routes to the DLQ after all retries are exhausted."""
-
     abstract = True
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         job_id = args[0] if args else "unknown"
         if self.request.retries >= self.max_retries:
-            log.error(
-                "Max retries reached for job=%s — routing to dead_letter queue", job_id[:8]
-            )
-            handle_dead_letter.apply_async(
-                args=[job_id, str(exc)],
-                queue="dead_letter",
-            )
+            log.error("Max retries reached for job=%s — routing to dead_letter queue", job_id[:8])
+            handle_dead_letter.apply_async(args=[job_id, str(exc)], queue="dead_letter")
 
 
 @app.task(
@@ -63,12 +40,6 @@ class _TranscriptTask(Task):
     name="worker.tasks.process_transcript",
 )
 def process_transcript(self, job_id: str) -> None:
-    """
-    Main worker task. Pulled from the 'transcripts' Redis queue.
-
-    Retry schedule (exponential backoff):
-      attempt 1 → wait 30 s → attempt 2 → wait 60 s → attempt 3 → wait 120 s → DLQ
-    """
     job = _job_service.get_job(job_id)
     if job is None:
         log.warning("job=%s not found in DB — skipping", job_id[:8])
@@ -102,14 +73,10 @@ def process_transcript(self, job_id: str) -> None:
 
         if retry_num <= self.max_retries:
             _job_service.update_job_status(job_id, "failed", error_message=err)
-            countdown = (2 ** self.request.retries) * 30  # 30 s, 60 s, 120 s
-            log.warning(
-                "Retrying job=%s  attempt=%d/%d  in=%ds",
-                job_id[:8], retry_num, self.max_retries, countdown,
-            )
+            countdown = (2 ** self.request.retries) * 30  # 30s, 60s, 120s
+            log.warning("Retrying job=%s  attempt=%d/%d  in=%ds", job_id[:8], retry_num, self.max_retries, countdown)
             raise self.retry(exc=root, countdown=countdown)
 
-        # max_retries hit — on_failure will route to DLQ
         if source.exists():
             source.rename(PROCESSED_DIR / f"{job_id}_failed.json")
         raise

@@ -148,11 +148,6 @@ hr { border-color: #21262D !important; }
 .ss-yellow { color: #D29922 !important; }
 .ss-red    { color: #F85149 !important; }
 
-.agent-section {
-    background: #0D1117; border: 1px solid #21262D; border-radius: 12px;
-    padding: 1.25rem 1.4rem; margin-bottom: 1rem;
-}
-
 .sub-title {
     font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
     text-transform: uppercase; letter-spacing: 0.12em; color: #484F58;
@@ -184,31 +179,45 @@ hr { border-color: #21262D !important; }
     margin: 0.2rem 0.25rem 0 0;
 }
 
-.assignee-header {
-    display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem;
+.jira-board { display: flex; flex-direction: column; gap: 0.5rem; }
+.jira-card {
+    background: #161B22; border: 1px solid #21262D;
+    border-left: 3px solid #58A6FF; border-radius: 6px;
+    padding: 0.75rem 1rem;
 }
-.assignee-avatar {
-    width: 26px; height: 26px; background: #58A6FF22; border: 1px solid #58A6FF44;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; font-weight: 600;
-    color: #58A6FF; flex-shrink: 0;
+.jira-top {
+    display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;
 }
-.assignee-name {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;
-    font-weight: 600; color: #C9D1D9; text-transform: uppercase; letter-spacing: 0.06em;
+.jira-id {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem;
+    color: #58A6FF; font-weight: 600; letter-spacing: 0.08em;
 }
-.assignee-count {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: #484F58;
+.jira-status {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem;
+    font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.12rem 0.45rem; border-radius: 3px;
+    background: #21262D; color: #8B949E; border: 1px solid #30363D;
 }
-.task-card {
-    background: #161B22; border: 1px solid #21262D; border-radius: 7px;
-    padding: 0.65rem 0.85rem; margin-bottom: 0.35rem;
+.jira-title {
+    font-size: 0.85rem; color: #E6EDF3; line-height: 1.5; margin-bottom: 0.5rem;
 }
-.task-action { font-size: 0.83rem; color: #C9D1D9; line-height: 1.45; }
-.task-blocker {
-    display: flex; align-items: flex-start; gap: 0.4rem; margin-top: 0.4rem;
-    font-size: 0.75rem; color: #D29922; background: #D2992211;
-    border: 1px solid #D2992233; border-radius: 5px; padding: 0.3rem 0.6rem;
+.jira-meta {
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+}
+.jira-assignee {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-size: 0.72rem; color: #8B949E;
+}
+.jira-avatar {
+    width: 20px; height: 20px; background: #58A6FF22; border: 1px solid #58A6FF44;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.5rem; font-weight: 600;
+    color: #58A6FF;
+}
+.jira-blocker {
+    display: flex; align-items: flex-start; gap: 0.4rem; margin-top: 0.45rem;
+    font-size: 0.74rem; color: #D29922; background: #D2992211;
+    border: 1px solid #D2992233; border-radius: 4px; padding: 0.3rem 0.6rem;
 }
 
 .deal-pipeline {
@@ -266,7 +275,6 @@ hr { border-color: #21262D !important; }
 .ep-val  { font-size: 0.83rem; color: #C9D1D9; }
 .ep-subj { font-weight: 600; color: #E6EDF3; }
 
-@keyframes pulse-badge { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 .fade-in { animation: fadeIn .35s ease forwards; }
 </style>
@@ -458,33 +466,51 @@ def render_taskmage(data: dict, uid: str) -> None:
         st.download_button("⬇ JSON", json.dumps(data, indent=2),
                            "taskmage.json", "application/json", key=f"dl_taskmage_{uid}")
 
-    tab_fmt, tab_raw = st.tabs(["Formatted", "Raw JSON"])
+    tab_fmt, tab_raw = st.tabs(["Board", "Raw JSON"])
 
     with tab_fmt:
         if not tasks:
             st.markdown('<div style="color:#484F58;font-size:.8rem;padding:.5rem 0;">No tasks generated.</div>', unsafe_allow_html=True)
+            return
 
+        ticket_counter = 1
         for assignee, atasks in grouped.items():
-            count = len(atasks)
+            initials = _initials(assignee)
             st.markdown(
-                f'<div style="margin-bottom:1rem;">'
-                f'  <div class="assignee-header">'
-                f'    <div class="assignee-avatar">{_initials(assignee)}</div>'
-                f'    <span class="assignee-name">{assignee}</span>'
-                f'    <span class="assignee-count">{count} task{"s" if count != 1 else ""}</span>'
-                f'  </div>',
+                f'<div style="margin:1rem 0 0.5rem;">'
+                f'  <span style="font-family:IBM Plex Mono,monospace;font-size:0.72rem;'
+                f'  color:#8B949E;text-transform:uppercase;letter-spacing:.08em;">'
+                f'  👤 {assignee} &nbsp;·&nbsp; {len(atasks)} task{"s" if len(atasks) != 1 else ""}'
+                f'  </span>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
+            cards_html = '<div class="jira-board">'
             for task in atasks:
-                blocker_html = f'<div class="task-blocker">🚧 {task["blocker"]}</div>' if task.get("blocker") else ""
-                st.markdown(
-                    f'<div class="task-card">'
-                    f'  <div class="task-action">{task.get("action_items", "—")}</div>'
-                    f'  {blocker_html}'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                ticket_id = f"DF-{ticket_counter:03d}"
+                ticket_counter += 1
+                blocker_html = (
+                    f'<div class="jira-blocker">🚧 &nbsp;{task["blocker"]}</div>'
+                    if task.get("blocker") else ""
                 )
-            st.markdown("</div>", unsafe_allow_html=True)
+                cards_html += (
+                    f'<div class="jira-card">'
+                    f'  <div class="jira-top">'
+                    f'    <span class="jira-id">{ticket_id}</span>'
+                    f'    <span class="jira-status">To Do</span>'
+                    f'  </div>'
+                    f'  <div class="jira-title">{task.get("action_items", "—")}</div>'
+                    f'  <div class="jira-meta">'
+                    f'    <span class="jira-assignee">'
+                    f'      <span class="jira-avatar">{initials}</span>'
+                    f'      {assignee}'
+                    f'    </span>'
+                    f'  </div>'
+                    f'  {blocker_html}'
+                    f'</div>'
+                )
+            cards_html += '</div>'
+            st.markdown(cards_html, unsafe_allow_html=True)
 
     with tab_raw:
         st.code(json.dumps(data, indent=2), language="json")
@@ -588,7 +614,7 @@ def render_email(data: dict, uid: str) -> None:
         st.code(json.dumps(data, indent=2), language="json")
 
 
-def render_job_tab(job: Dict[str, Any]) -> None:
+def render_job_output(job: Dict[str, Any]) -> None:
     status = job.get("status", "unknown")
     uid = job["id"][:8]
 
@@ -622,7 +648,6 @@ def render_job_tab(job: Dict[str, Any]) -> None:
     render_summary_strip(result, full_job)
     st.divider()
 
-    # Inner tabs — one per agent
     tab_ext, tab_tasks, tab_hs, tab_email = st.tabs([
         "🔍  Extraction", "📋  Tasks", "🏢  HubSpot CRM", "✉️  Email",
     ])
@@ -659,6 +684,14 @@ def render_job_tab(job: Dict[str, Any]) -> None:
         st.code(json.dumps(result, indent=2), language="json")
 
 
+def _job_label(job: Dict[str, Any]) -> str:
+    name = job.get("source_file") or job["id"][:12]
+    date = (job.get("created_at") or "")[:10]
+    status = job.get("status", "")
+    status_icon = {"complete": "✅", "processing": "⏳", "pending": "🕐", "failed": "❌", "dead": "💀"}.get(status, "•")
+    return f"{status_icon}  {name}  —  {date}" if date else f"{status_icon}  {name}"
+
+
 def main() -> None:
     render_header()
     render_drop_notice()
@@ -680,12 +713,17 @@ def main() -> None:
         st.rerun()
         return
 
-    tab_labels = [job.get("source_file") or job["id"][:12] for job in jobs]
-    tabs = st.tabs(tab_labels)
+    labels = [_job_label(j) for j in jobs]
+    selected_idx = st.selectbox(
+        "Select Meeting",
+        options=range(len(jobs)),
+        format_func=lambda i: labels[i],
+        index=0,
+        label_visibility="collapsed",
+    )
 
-    for tab, job in zip(tabs, jobs):
-        with tab:
-            render_job_tab(job)
+    st.markdown("<div style='margin-top:1.25rem;'></div>", unsafe_allow_html=True)
+    render_job_output(jobs[selected_idx])
 
     if any(j["status"] in ("pending", "processing") for j in jobs):
         time.sleep(3)

@@ -54,7 +54,7 @@ def process_transcript(self, job_id: str) -> None:
 
         if retry_num <= self.max_retries:
             _job_service.update_job_status(job_id, "failed", error_message=err)
-            countdown = (2 ** self.request.retries) * 30  # 30s, 60s, 120s
+            countdown = (2 ** self.request.retries) * 10  # 30s, 60s, 120s
             log.warning("Retrying job=%s  attempt=%d/%d  in=%ds", job_id[:8], retry_num, self.max_retries, countdown)
             raise self.retry(exc=root, countdown=countdown)
 

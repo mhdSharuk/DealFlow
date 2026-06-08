@@ -102,6 +102,7 @@ class DealFlowOrchestrator:
         )
 
         self._persist_outputs(layer2_results, meeting_id)
+        self.save_tasks_to_database(layer1_results.get("tasks"), meeting_id)
 
         return {
             "agent_1_extraction": layer1_results.get("extraction"),

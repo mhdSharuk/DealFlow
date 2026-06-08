@@ -53,9 +53,6 @@ def process_transcript(self, job_id: str) -> None:
         result = asyncio.run(_orchestrator.process_transcript(job["raw_payload"]))
 
         meeting_id = (result.get("metadata") or {}).get("meeting_id")
-        if result.get("agent_2_tickets"):
-            _orchestrator.save_tasks_to_database(result["agent_2_tickets"], meeting_id)
-
         _job_service.update_job_status(job_id, "complete", result=result, meeting_id=meeting_id)
         if source.exists():
             source.rename(PROCESSED_DIR / f"{job_id}.json")

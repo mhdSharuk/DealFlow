@@ -2,10 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-path = Path(os.getcwd()) / '.env'
+path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=path, override=True)
 
-BASE_DIR = Path(os.getcwd())
+BASE_DIR = Path(__file__).parent.parent
 
 DATA_DIR       = BASE_DIR / "data"
 INPUT_DIR      = DATA_DIR / "input"

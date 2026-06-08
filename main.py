@@ -3,8 +3,8 @@ import json
 import sys
 from pathlib import Path
 
-from config import ensure_directories
-from orchestrator import DealFlowOrchestrator
+from core.config import ensure_directories
+from core.orchestrator import DealFlowOrchestrator
 from services.database_services import DatabaseService
 from services.storage_services import StorageService
 from utils.transcript_parser import TranscriptParser

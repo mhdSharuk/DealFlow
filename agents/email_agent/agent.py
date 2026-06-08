@@ -1,7 +1,7 @@
 from google.adk.agents import LlmAgent
 from agents.email_agent.schema import EmailOutput
 from agents.email_agent.prompts import SYSTEM_PROMPT
-from config import GEMINI_MODEL
+from core.config import GEMINI_MODEL
 
 
 def create_email_agent():

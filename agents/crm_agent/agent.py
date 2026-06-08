@@ -1,7 +1,7 @@
 from google.adk.agents import LlmAgent
 from agents.crm_agent.schema import HubSpotOutput
 from agents.crm_agent.prompts import SYSTEM_PROMPT
-from config import GEMINI_MODEL
+from core.config import GEMINI_MODEL
 
 def create_hubspot_agent():
     return LlmAgent(

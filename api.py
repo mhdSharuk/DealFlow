@@ -10,7 +10,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import (
+from core.config import (
     API_BASE_URL,
     DATABASE_PATH,
     INPUT_DIR,
@@ -18,7 +18,7 @@ from config import (
     PROCESSING_DIR,
     ensure_directories,
 )
-from orchestrator import DealFlowOrchestrator
+from core.orchestrator import DealFlowOrchestrator
 from services.job_service import JobService
 
 logging.basicConfig(

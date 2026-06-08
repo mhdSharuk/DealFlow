@@ -118,7 +118,6 @@ class JobService:
             conn.close()
 
     def job_exists_for_file(self, source_file: str) -> bool:
-        """Return True if a job has already been created for this filename."""
         conn = _connect(self.db_path)
         try:
             row = conn.execute(

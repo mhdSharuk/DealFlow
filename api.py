@@ -100,7 +100,7 @@ async def list_dead_jobs() -> List[Dict[str, Any]]:
 @app.get("/jobs/{job_id}")
 async def get_job(job_id: str) -> Dict[str, Any]:
     job = job_service.get_job(job_id)
-    if job is None:
+    if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
     return job
 

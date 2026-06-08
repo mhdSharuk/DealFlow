@@ -1,4 +1,5 @@
 import asyncio
+import time
 import traceback
 
 from celery.utils.log import get_task_logger
@@ -37,14 +38,16 @@ def process_transcript(self, job_id: str) -> None:
     log.info("Processing job=%s  file=%s", job_id[:8], job.get("source_file"))
 
     try:
+        start = time.time()
         result = asyncio.run(_orchestrator.process_transcript(job["raw_payload"]))
+        duration = time.time() - start
 
         meeting_id = (result.get("metadata") or {}).get("meeting_id")
         _job_service.update_job_status(job_id, "complete", result=result, meeting_id=meeting_id)
         if source.exists():
             source.rename(PROCESSED_DIR / f"{job_id}.json")
 
-        log.info("Completed job=%s  meeting_id=%s", job_id[:8], meeting_id)
+        log.info("Completed job=%s  meeting_id=%s  duration=%.2fs", job_id[:8], meeting_id, duration)
 
     except Exception as exc:
         root = exc.exceptions[0] if isinstance(exc, ExceptionGroup) and exc.exceptions else exc

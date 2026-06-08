@@ -104,6 +104,19 @@ class JobService:
         finally:
             conn.close()
 
+    def get_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
+        conn = _connect(self.db_path)
+        try:
+            rows = conn.execute(
+                """SELECT id, meeting_id, source_file, status,
+                          created_at, started_at, completed_at, error_message
+                   FROM jobs WHERE status = ? ORDER BY created_at DESC""",
+                (status,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
     def job_exists_for_file(self, source_file: str) -> bool:
         """Return True if a job has already been created for this filename."""
         conn = _connect(self.db_path)

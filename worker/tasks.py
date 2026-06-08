@@ -1,8 +1,6 @@
 import asyncio
-import logging
 import traceback
 
-from celery import Task
 from celery.utils.log import get_task_logger
 
 from core.config import PROCESSED_DIR, PROCESSING_DIR
@@ -22,26 +20,15 @@ def handle_dead_letter(job_id: str, error: str) -> None:
     _job_service.update_job_status(job_id, "dead", error_message=f"[DLQ] {error}")
 
 
-class _TranscriptTask(Task):
-    abstract = True
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        job_id = args[0] if args else "unknown"
-        if self.request.retries >= self.max_retries:
-            log.error("Max retries reached for job=%s — routing to dead_letter queue", job_id[:8])
-            handle_dead_letter.apply_async(args=[job_id, str(exc)], queue="dead_letter")
-
-
 @app.task(
     bind=True,
-    base=_TranscriptTask,
     max_retries=3,
     queue="transcripts",
     name="worker.tasks.process_transcript",
 )
 def process_transcript(self, job_id: str) -> None:
     job = _job_service.get_job(job_id)
-    if job is None:
+    if not job:
         log.warning("job=%s not found in DB — skipping", job_id[:8])
         return
 
@@ -60,10 +47,7 @@ def process_transcript(self, job_id: str) -> None:
         log.info("Completed job=%s  meeting_id=%s", job_id[:8], meeting_id)
 
     except Exception as exc:
-        # Unwrap ExceptionGroup from ADK's ParallelAgent
-        root = exc
-        if isinstance(exc, ExceptionGroup) and exc.exceptions:
-            root = exc.exceptions[0]
+        root = exc.exceptions[0] if isinstance(exc, ExceptionGroup) and exc.exceptions else exc
 
         err = f"{type(root).__name__}: {root}\n\nFull traceback:\n{traceback.format_exc()}"
         retry_num = self.request.retries + 1
@@ -76,4 +60,5 @@ def process_transcript(self, job_id: str) -> None:
 
         if source.exists():
             source.rename(PROCESSED_DIR / f"{job_id}_failed.json")
+        handle_dead_letter.apply_async(args=[job_id, str(root)], queue="dead_letter")
         raise

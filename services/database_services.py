@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 
-from config import DATABASE_PATH, TICKETS_TABLE_PATH
+from core.config import DATABASE_PATH, TICKETS_TABLE_PATH
 
 class DatabaseService:
     def __init__(self, db_path = DATABASE_PATH):

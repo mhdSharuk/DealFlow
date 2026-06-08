@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from datetime import datetime
 
-from config import OUTPUT_DIR
+from core.config import OUTPUT_DIR
 
 class StorageService:
     def __init__(self, output_dir: Path = OUTPUT_DIR):

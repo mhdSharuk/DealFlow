@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from config import DATABASE_PATH, JOBS_TABLE_PATH
+from core.config import DATABASE_PATH, JOBS_TABLE_PATH
 
 
 def _utcnow() -> str:

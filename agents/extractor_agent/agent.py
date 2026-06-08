@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from config import GEMINI_MODEL
+from core.config import GEMINI_MODEL
 from agents.extractor_agent.prompts import SYSTEM_PROMPT
 from agents.extractor_agent.schema import ExtractionOutputSchema
 

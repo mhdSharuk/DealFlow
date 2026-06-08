@@ -1,5 +1,5 @@
 from google.adk.agents import Agent
-from config import GEMINI_MODEL
+from core.config import GEMINI_MODEL
 from agents.task_agent.schema import TaskOutput
 from agents.task_agent.prompts import SYSTEM_PROMPT
 

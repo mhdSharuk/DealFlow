@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import streamlit as st
 
-from config import API_BASE_URL
+from core.config import API_BASE_URL
 
 log = logging.getLogger("dealflow.ui")
 logging.basicConfig(level=logging.INFO)

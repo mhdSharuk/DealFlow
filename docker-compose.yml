@@ -1,0 +1,55 @@
+services:
+
+  api:
+    build: .
+    image: dealflow:latest
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Only the api service mounts the data volume — it is the sole writer.
+      # SQLite WAL mode allows the api to write while the ui reads via HTTP,
+      # but running two api replicas would cause SQLite write contention.
+      - dealflow_data:/app/data
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
+      # Passed through in case Google ADK reads it directly from the environment.
+      - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
+      - API_BASE_URL=http://localhost:8000
+    healthcheck:
+      # python:3.12-slim has no curl or wget — use stdlib urllib instead.
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Grace period for ADK agent initialisation before failures count.
+      start_period: 30s
+    restart: unless-stopped
+
+  ui:
+    build: .
+    image: dealflow:latest
+    command: streamlit run ui.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      # "api" resolves to the api container on Docker's internal bridge network.
+      # "localhost" inside the ui container is the ui container itself — that breaks.
+      # Streamlit uses server-side httpx (not browser JS), so this URL must be
+      # reachable from inside the container, not from the browser.
+      - API_BASE_URL=http://api:8000
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-2.5-flash}
+    depends_on:
+      api:
+        # ui will not start until GET /health returns HTTP 200.
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dealflow_data:
+    # Persists across `docker compose down`.
+    # Destroyed only by `docker compose down -v` or `docker volume rm dealflow_data`.
+    driver: local

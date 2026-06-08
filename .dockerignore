@@ -1,0 +1,41 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Runtime data — never bake user data into the image.
+# The api container mounts a named volume for this at runtime.
+data/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets — must never be in the image
+.env
+
+# Git history
+.git/
+.gitignore
+
+# Dev/design artifacts not needed at runtime
+misc/
+graphify-out/
+assets/
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db

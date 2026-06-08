@@ -1,10 +1,12 @@
 import os
-from dotenv import load_dotenv
+import ssl
+
 from celery import Celery
+from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=os.getcwd() + '/.env', override=True)
 
-app = Celery("dealflow")
+app = Celery("dealflow", include=["worker.tasks"])
 
 redis_url = os.getenv("REDIS_URL")
 

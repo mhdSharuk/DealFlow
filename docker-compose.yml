@@ -16,6 +16,7 @@ services:
       - REDIS_URL=${REDIS_URL}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -38,6 +39,7 @@ services:
       - REDIS_URL=${REDIS_URL}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
     restart: unless-stopped
 
   ui:

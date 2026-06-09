@@ -1,6 +1,4 @@
 import os
-import ssl
-
 from celery import Celery
 from dotenv import load_dotenv
 

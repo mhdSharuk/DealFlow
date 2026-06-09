@@ -8,3 +8,7 @@ data/input/
 data/processing/
 data/processed/
 data/output/
+
+EXPLANATION.md
+graphify-out/
+graphify-out/*

@@ -12,6 +12,7 @@ from core.config import INPUT_DIR, ensure_directories, get_supabase_client
 from services.job_service import JobService
 from worker.celery_app import app as celery_app
 from worker.tasks import process_transcript
+from utils.slack_alert import alert_slack
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("dealflow.api")
@@ -48,14 +49,18 @@ async def file_watcher_loop() -> None:
                     log.error("Invalid JSON in %s: %s", json_file.name, exc)
                     job_service.create_dead_job(source_file=json_file.name, 
                                                 error_message=f"Invalid JSON: {exc}")
+                    
                     json_file.unlink()
-
+                    alert_slack(job_id, f"Invalid JSON: {exc}")
+                    
                 except Exception as exc:
                     log.error("Failed to ingest %s: %s", json_file.name, exc)
                     job_service.create_dead_job(source_file=json_file.name, 
                                                 error_message=f"Failed to ingest: {exc}")
                     
                     json_file.unlink()
+                    alert_slack(job_id, f"Failed to ingest: {exc}")
+                    
 
         except Exception as exc:
             log.error("file_watcher_loop error: %s", exc)

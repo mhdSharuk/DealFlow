@@ -1,5 +1,6 @@
 import json
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -13,26 +14,35 @@ class JobService:
         self.db = get_supabase_client()
 
     def create_job(self, raw_payload: Dict[str, Any], source_file: str = "") -> str:
-        job_id = uuid.uuid4().hex
-        self.db.table(SUPABASE_JOBS_TABLE).insert({
-            "id": job_id,
-            "status": "pending",
-            "raw_payload": json.dumps(raw_payload),
-            "source_file": source_file,
-            "created_at": _utcnow(),
-        }).execute()
-        return job_id
+        try:
+            job_id = uuid.uuid4().hex
+            self.db.table(SUPABASE_JOBS_TABLE).insert({
+                "id": job_id,
+                "status": "pending",
+                "raw_payload": json.dumps(raw_payload),
+                "source_file": source_file,
+                "created_at": _utcnow(),
+            }).execute()
+            return job_id
+        
+        except Exception as exc:
+            logging.error("Error in JobService.create_job: Failed to create job for file %s: %s", source_file, exc)
+            return None
     
     def create_dead_job(self, source_file: str, error_message: str) -> None:
-        job_id = uuid.uuid4().hex
-        self.db.table(SUPABASE_JOBS_TABLE).insert({
-            "id": job_id,
-            "status": "dead",
-            "raw_payload": None,
-            "source_file": source_file,
-            "error_message": f"{error_message}",
-            "created_at": _utcnow(),
-        }).execute()
+        try:
+            job_id = uuid.uuid4().hex
+            self.db.table(SUPABASE_JOBS_TABLE).insert({
+                "id": job_id,
+                "status": "dead",
+                "raw_payload": None,
+                "source_file": source_file,
+                "error_message": f"{error_message}",
+                "created_at": _utcnow(),
+            }).execute()
+
+        except Exception as exc:
+            logging.error("Error in JobService.create_dead_job: Failed to create dead job for file %s: %s", source_file, exc)
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         res = self.db.table(SUPABASE_JOBS_TABLE).select("*").eq("id", job_id).single().execute()

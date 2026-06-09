@@ -20,6 +20,8 @@ SUPABASE_JOBS_TABLE = "jobs"
 SUPABASE_TASKS_TABLE = "tasks"
 SUPABASE_BUCKET = "dealflow-outputs"
 
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+
 _client: Client | None = None
 
 def get_supabase_client() -> Client:

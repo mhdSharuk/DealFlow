@@ -17,7 +17,7 @@ _orchestrator = DealFlowOrchestrator()
 
 @app.task(queue="dead_letter")
 def handle_dead_letter(job_id: str, error: str) -> None:
-    log.error("DLQ received job=%s  error=%s", job_id[:8], error[:200])
+    log.error("DLQ received job=%s  error=%s", job_id, error[-200:])
     _job_service.update_job_status(job_id, "dead", error_message=f"[DLQ] {error}")
 
     alert_slack(job_id, error)
@@ -31,20 +31,23 @@ def handle_dead_letter(job_id: str, error: str) -> None:
 def process_transcript(self, job_id: str) -> None:
     job = _job_service.get_job(job_id)
     if not job:
-        log.warning("job=%s not found in DB — skipping", job_id[:8])
+        log.warning("job=%s not found in DB — skipping", job_id)
         return
 
     _job_service.update_job_status(job_id, "processing")
-    log.info("Processing job=%s  file=%s", job_id[:8], job.get("source_file"))
+    log.info("Processing job=%s  file=%s", job_id, job.get("source_file"))
 
     try:
         start = time.time()
+        if not job.get("raw_payload"):
+            raise ValueError("Job has no raw_payload")
+        
         result = asyncio.run(_orchestrator.process_transcript(job["raw_payload"]))
         duration = time.time() - start
 
         meeting_id = (result.get("metadata") or {}).get("meeting_id")
         _job_service.update_job_status(job_id, "complete", result=result, meeting_id=meeting_id)
-        log.info("Completed job=%s  meeting_id=%s  duration=%.2fs", job_id[:8], meeting_id, duration)
+        log.info("Completed job=%s  meeting_id=%s  duration=%.2fs", job_id, meeting_id, duration)
 
     except Exception as exc:
         root = exc.exceptions[0] if isinstance(exc, ExceptionGroup) and exc.exceptions else exc
@@ -54,8 +57,8 @@ def process_transcript(self, job_id: str) -> None:
 
         if retry_num <= self.max_retries:
             _job_service.update_job_status(job_id, "failed", error_message=err)
-            countdown = (2 ** self.request.retries) * 10
-            log.warning("Retrying job=%s  attempt=%d/%d  in=%ds", job_id[:8], retry_num, self.max_retries, countdown)
+            countdown = (2 ** self.request.retries) * 3
+            log.warning("Retrying job=%s  attempt=%d/%d  in=%ds", job_id, retry_num, self.max_retries, countdown)
             raise self.retry(exc=root, countdown=countdown)
 
         handle_dead_letter.apply_async(args=[job_id, str(root)], queue="dead_letter")

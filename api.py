@@ -49,15 +49,18 @@ async def file_watcher_loop() -> None:
                     log.error("Invalid JSON in %s: %s", json_file.name, exc)
                     job_service.create_dead_job(source_file=json_file.name, 
                                                 error_message=f"Invalid JSON: {exc}")
-                    alert_slack(job_id, f"Invalid JSON: {exc}")
+                    
                     json_file.unlink()
-
+                    alert_slack(job_id, f"Invalid JSON: {exc}")
+                    
                 except Exception as exc:
                     log.error("Failed to ingest %s: %s", json_file.name, exc)
                     job_service.create_dead_job(source_file=json_file.name, 
                                                 error_message=f"Failed to ingest: {exc}")
-                    alert_slack(job_id, f"Failed to ingest: {exc}")
+                    
                     json_file.unlink()
+                    alert_slack(job_id, f"Failed to ingest: {exc}")
+                    
 
         except Exception as exc:
             log.error("file_watcher_loop error: %s", exc)

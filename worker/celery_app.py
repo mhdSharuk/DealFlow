@@ -7,7 +7,6 @@ load_dotenv(dotenv_path=os.getcwd() + '/.env', override=True)
 app = Celery("dealflow", include=["worker.tasks"])
 
 redis_url = os.getenv("REDIS_URL")
-slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
 
 app.conf.update(
     broker_url=redis_url,

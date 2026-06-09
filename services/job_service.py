@@ -24,6 +24,17 @@ class JobService:
             "created_at": _utcnow(),
         }).execute()
         return job_id
+    
+    def create_dead_job(self, source_file: str, error_message: str) -> None:
+        job_id = uuid.uuid4().hex
+        self.db.table("jobs").insert({
+            "id": job_id,
+            "status": "dead",
+            "raw_payload": None,
+            "source_file": source_file,
+            "error_message": f"{error_message}",
+            "created_at": _utcnow(),
+        }).execute()
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         res = self.db.table("jobs").select("*").eq("id", job_id).single().execute()
@@ -66,7 +77,7 @@ class JobService:
         return res.data or []
 
     def job_exists_for_file(self, source_file: str) -> bool:
-        res = self.db.table("jobs").select("id").eq("source_file", source_file).limit(1).execute()
+        res = self.db.table("jobs").select("id").eq("source_file", source_file).in_("status", ["pending", "processing"]).limit(1).execute()
         return bool(res.data)
 
     @staticmethod

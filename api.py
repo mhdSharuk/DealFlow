@@ -29,26 +29,37 @@ def _reset_stuck_jobs() -> None:
 
 
 async def file_watcher_loop() -> None:
-    seen: set = set()
     while True:
         try:
             for json_file in sorted(INPUT_DIR.glob("*.json")):
-                if json_file.name in seen:
-                    continue
                 if job_service.job_exists_for_file(json_file.name):
-                    seen.add(json_file.name)
                     continue
-                seen.add(json_file.name)
                 try:
                     raw = json.loads(json_file.read_text(encoding="utf-8"))
                     job_id = job_service.create_job(raw, source_file=json_file.name)
+
                     json_file.unlink()
+                    
                     process_transcript.apply_async(args=[job_id], queue="transcripts")
+                    
                     log.info("Dispatched  job=%s  file=%s", job_id[:8], json_file.name)
+
+                except json.JSONDecodeError as exc:
+                    log.error("Invalid JSON in %s: %s", json_file.name, exc)
+                    job_service.create_dead_job(source_file=json_file.name, 
+                                                error_message=f"Invalid JSON: {exc}")
+                    json_file.unlink()
+
                 except Exception as exc:
                     log.error("Failed to ingest %s: %s", json_file.name, exc)
+                    job_service.create_dead_job(source_file=json_file.name, 
+                                                error_message=f"Failed to ingest: {exc}")
+                    
+                    json_file.unlink()
+
         except Exception as exc:
             log.error("file_watcher_loop error: %s", exc)
+
         await asyncio.sleep(3)
 
 

@@ -20,9 +20,13 @@ SUPABASE_JOBS_TABLE = "jobs"
 SUPABASE_TASKS_TABLE = "tasks"
 SUPABASE_BUCKET = "dealflow-outputs"
 
-def get_supabase_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+_client: Client | None = None
 
+def get_supabase_client() -> Client:
+    global _client
+    if _client is None:
+        _client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _client
 
 def ensure_directories():
     INPUT_DIR.mkdir(parents=True, exist_ok=True)

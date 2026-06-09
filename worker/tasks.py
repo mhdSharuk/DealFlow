@@ -1,24 +1,26 @@
-import asyncio
 import time
+import asyncio
 import traceback
+import requests
 
 from celery.utils.log import get_task_logger
 
 from core.orchestrator import DealFlowOrchestrator
 from services.job_service import JobService
 from worker.celery_app import app
+from utils.slack_alert import alert_slack
 
 log = get_task_logger(__name__)
 
 _job_service = JobService()
 _orchestrator = DealFlowOrchestrator()
 
-
 @app.task(queue="dead_letter")
 def handle_dead_letter(job_id: str, error: str) -> None:
     log.error("DLQ received job=%s  error=%s", job_id[:8], error[:200])
     _job_service.update_job_status(job_id, "dead", error_message=f"[DLQ] {error}")
 
+    alert_slack(job_id, error)
 
 @app.task(
     bind=True,

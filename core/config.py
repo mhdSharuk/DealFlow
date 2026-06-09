@@ -16,6 +16,9 @@ API_BASE_URL   = os.getenv("API_BASE_URL", "http://localhost:8000")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
+SUPABASE_JOBS_TABLE = "jobs"
+SUPABASE_TASKS_TABLE = "tasks"
+SUPABASE_BUCKET = "dealflow-outputs"
 
 def get_supabase_client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)

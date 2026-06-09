@@ -3,12 +3,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from core.config import get_supabase_client
-
+from core.config import get_supabase_client, SUPABASE_JOBS_TABLE
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
 
 class JobService:
     def __init__(self):
@@ -16,7 +14,7 @@ class JobService:
 
     def create_job(self, raw_payload: Dict[str, Any], source_file: str = "") -> str:
         job_id = uuid.uuid4().hex
-        self.db.table("jobs").insert({
+        self.db.table(SUPABASE_JOBS_TABLE).insert({
             "id": job_id,
             "status": "pending",
             "raw_payload": json.dumps(raw_payload),
@@ -27,7 +25,7 @@ class JobService:
     
     def create_dead_job(self, source_file: str, error_message: str) -> None:
         job_id = uuid.uuid4().hex
-        self.db.table("jobs").insert({
+        self.db.table(SUPABASE_JOBS_TABLE).insert({
             "id": job_id,
             "status": "dead",
             "raw_payload": None,
@@ -37,11 +35,11 @@ class JobService:
         }).execute()
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        res = self.db.table("jobs").select("*").eq("id", job_id).single().execute()
+        res = self.db.table(SUPABASE_JOBS_TABLE).select("*").eq("id", job_id).single().execute()
         return self._deserialise(res.data) if res.data else None
 
     def get_all_jobs(self) -> List[Dict[str, Any]]:
-        res = self.db.table("jobs").select(
+        res = self.db.table(SUPABASE_JOBS_TABLE).select(
             "id, meeting_id, source_file, status, created_at, started_at, completed_at"
         ).order("created_at", desc=True).execute()
         return res.data or []
@@ -68,16 +66,16 @@ class JobService:
         else:
             payload = {"status": status, "error_message": error_message}
 
-        self.db.table("jobs").update(payload).eq("id", job_id).execute()
+        self.db.table(SUPABASE_JOBS_TABLE).update(payload).eq("id", job_id).execute()
 
     def get_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
-        res = self.db.table("jobs").select(
+        res = self.db.table(SUPABASE_JOBS_TABLE).select(
             "id, meeting_id, source_file, status, created_at, started_at, completed_at, error_message"
         ).eq("status", status).order("created_at", desc=True).execute()
         return res.data or []
 
     def job_exists_for_file(self, source_file: str) -> bool:
-        res = self.db.table("jobs").select("id").eq("source_file", source_file).in_("status", ["pending", "processing"]).limit(1).execute()
+        res = self.db.table(SUPABASE_JOBS_TABLE).select("id").eq("source_file", source_file).in_("status", ["pending", "processing"]).limit(1).execute()
         return bool(res.data)
 
     @staticmethod

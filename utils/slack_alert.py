@@ -2,8 +2,6 @@ import requests
 import logging
 from core.config import SLACK_WEBHOOK_URL
 
-print(SLACK_WEBHOOK_URL)
-
 def alert_slack(job_id: str, error: str, slack_webhook_url: str = SLACK_WEBHOOK_URL) -> None:
     try:
         logging.info("utils.slack_alert.alert_slack: Sending Slack alert for job_id=%s with error: %s", job_id, error[-200:])

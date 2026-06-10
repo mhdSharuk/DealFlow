@@ -12,5 +12,5 @@ def create_extractor_agent():
                         the call transcripts""",
         instruction  = SYSTEM_PROMPT,
         output_schema = ExtractionOutputSchema,
-        output_key = 'extraction_result'
+        output_key = 'extraction'
     )

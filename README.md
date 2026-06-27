@@ -59,7 +59,7 @@ flowchart TD
 
     subgraph L2[Layer 2 — parallel]
         direction LR
-        HS[HubSpot Agent]
+        HS[CRM Agent]
         EM[Email Agent]
     end
 
@@ -84,7 +84,7 @@ flowchart LR
     L1 -->|extraction_result\ntask_result| L2
 
     subgraph L2[Layer 2]
-        HS[HubSpot Agent\ndeal stage · sentiment · CRM notes]
+        HS[CRM Agent\ndeal stage · sentiment · CRM notes]
         EM[Email Agent\nsubject · body · recipient]
     end
 
@@ -101,7 +101,7 @@ stateDiagram-v2
     processing --> complete : All 4 agents succeeded
     processing --> failed : Exception raised
     failed --> processing : Retry — backoff 10s · 20s · 40s
-    failed --> dead : 3 retries exhausted → DLQ
+    failed --> dead : 3 retries exhausted → DLQ · Slack alert sent
     complete --> [*]
     dead --> [*] : Visible at GET /jobs/dead
 ```
@@ -122,10 +122,13 @@ flowchart LR
         ST[(Storage\ndealflow-outputs)]
     end
 
+    SLACK[Slack\nincoming webhook]
+
     API -->|publish task| R
     R -->|consume task| W
     W <-->|read · write| DB
     W -->|upload outputs| ST
+    W -->|dead letter alert| SLACK
     API <-->|read · write| DB
     UI -->|GET /jobs| API
 ```
@@ -156,7 +159,7 @@ All agents use the Gemini model set in `GEMINI_MODEL_NAME`.
 
 ### Layer 2 — runs in parallel, fed by Layer 1 output
 
-**HubSpot Agent** — translates call outcomes into CRM field updates
+**CRM Agent** — translates call outcomes into CRM field updates
 
 | Field | Description |
 |---|---|
@@ -181,7 +184,6 @@ All agents use the Gemini model set in `GEMINI_MODEL_NAME`.
 DealFlow/
 ├── api.py                        # FastAPI — file watcher loop, REST endpoints
 ├── ui.py                         # Streamlit dashboard — polls FastAPI every 3s
-├── main.py                       # CLI entry point — single-file batch mode
 ├── requirements.txt
 │
 ├── worker/
@@ -255,11 +257,11 @@ cp .env.example .env
 |---|---|---|
 | `GOOGLE_API_KEY` | Google Cloud API key for Gemini | Yes |
 | `GEMINI_MODEL_NAME` | Gemini model name (e.g. `gemini-2.5-flash`) | Yes |
-| `GEMINI_BASE_URL` | Gemini API base URL | Yes |
 | `REDIS_URL` | Redis connection URL including credentials | Yes |
 | `SUPABASE_URL` | Supabase project URL | Yes |
 | `SUPABASE_KEY` | Supabase service role key | Yes |
 | `API_BASE_URL` | FastAPI base URL (default: `http://localhost:8000`) | No |
+| `SLACK_WEBHOOK_URL` | Slack incoming webhook URL for dead-letter alerts | No |
 
 ---
 
@@ -290,15 +292,6 @@ celery -A worker.celery_app worker --loglevel=info -Q transcripts,dead_letter
 
 # Terminal 3 — Streamlit dashboard
 streamlit run ui.py
-```
-
-### CLI Mode — no server needed
-
-```bash
-python main.py path/to/transcript.json
-
-# Or with the built-in sample
-python main.py --sample
 ```
 
 ---
